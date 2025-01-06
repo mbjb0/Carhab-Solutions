@@ -1,0 +1,13 @@
+I have gotten about as far as I can get without having the car.
+Uncomment out the import and Instruction class uses on main to test running on the car.
+Set debug to 0 to actually move the car wheels.
+I have no idea if any of the libraries or my logic loops actually work but it should provide
+good placeholder code to give an idea of what we should be doing.
+We should probably also replace the model. If you train, or just find a better trained model online
+you can just replace best.pt and change the classes in init__ for driving_logic.
+Currently I am using German sign dataset, print out some of the signs on dataset-card to test.
+It is much better at the triangular signs.
+
+The model is especially bad at telling left from right signs. I think this has to do with the default
+yolo training having a random flip transform, so if we train our own model make sure to disable that.
+https://docs.ultralytics.com/yolov5/quickstart_tutorial/
