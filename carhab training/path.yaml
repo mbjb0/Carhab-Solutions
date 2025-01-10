@@ -1,0 +1,6 @@
+train: C:\Users\lfiel\Desktop\carhab model training\archive\Train
+val: C:\Users\lfiel\Desktop\carhab model training\archive\Test
+
+# Classes
+nc: 6  # Number of classes
+names: [0,1,2,3,4,5]  # Class names
