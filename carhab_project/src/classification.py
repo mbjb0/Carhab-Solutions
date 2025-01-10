@@ -15,6 +15,8 @@ class RoadSignDetection:
         self.device = device
         self.yolo = YOLOv5(self.weights_path, device=self.device)
         self.tracker = Sort(max_age=30, min_hits=2, iou_threshold=0.3)
+        #current names in self trained model, if replacing best.pt make sure to change these
+        self.names = ['STOP', 'CAUTION', 'RIGHT', 'LEFT', 'FORWARD', 'ROUNDABOUT']
 
     def get_highest_confidence_sign(self, frame):
         """
@@ -36,7 +38,7 @@ class RoadSignDetection:
                         if conf > highest_confidence:
                             highest_confidence = conf
                             # Use the class name from results.names if available
-                            class_name = int(cls) 
+                            class_name = class_name = self.names[int(cls)] 
                             highest_confidence_label = f"{class_name} {conf:.2f}"
         
         return highest_confidence_label
@@ -70,10 +72,11 @@ class RoadSignDetection:
             if len(valid_detections) > 0:
                 for detection in valid_detections:
                     x1, y1, x2, y2, conf, cls = detection.tolist()
-                    class_id = int(cls)
                     
-                    # Get class name if available
-                    class_name = results.names[class_id] if hasattr(results, 'names') else f"Class {class_id}"
+                    class_id = int(cls)
+
+                    # Get class name
+                    class_name = self.names[class_id]
                     
                     # Format for output
                     detection_info = [x1, y1, x2, y2, conf, class_id]
@@ -83,10 +86,9 @@ class RoadSignDetection:
                     color = (0, 0, 255)  # Red color 
                     label = f"{class_name} {conf:.2f}"
                     
-                    # Draw rectangle and label
+                    # Draw rectangle and label (currently not drawing label for readability)
                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-                    cv2.putText(frame, label, (int(x1), int(y1) - 10),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                    #cv2.putText(frame, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         
         #--------Drawing Tacker-----------------------------------------------------------------------
         if results.xyxy is not None and len(results.xyxy):
@@ -137,8 +139,8 @@ class RoadSignDetection:
                         x1, y1, x2, y2, track_id, cls = highest_conf_track
                         color = (0, 255, 0)  # Green color
                         
-                        # Get class name if available
-                        class_name = results.names[int(cls)] if hasattr(results, 'names') else f"Class {int(cls)}"
+                        # Get class name
+                        class_name = self.names[int(cls)]
                         label = f"ID:{int(track_id)} {class_name} {highest_conf:.2f}"
                         
                         # Draw rectangle and label
