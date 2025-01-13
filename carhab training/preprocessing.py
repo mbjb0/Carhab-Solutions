@@ -7,10 +7,7 @@ from albumentations.pytorch import ToTensorV2
 from pathlib import Path
 import cv2 
 
-#classes = ['background']
-classes = ['14','18','33','34','35','40']
-# Set up your image folder path
-
+classes = ['14','18','33','34','35','40', 'background']
 
 
 # Define augmentation pipeline 
@@ -96,18 +93,23 @@ def add_random_lines(height, width, num_lines=8, thickness=2):
 
     return image
 
+def add_black_padding(height, width):
+    #generate black rectangles for padding
+    return np.zeros((height, width, 3), dtype=np.uint8)
+
 def generate_random_noise(height, width):
     # Generate random noise
-    
     return np.random.randint(0, 256, size=(height, width, 3), dtype=np.uint8)
 
+#///MAIN PREPROCESS LOOP///
 for item in classes:
 
     input_folder_top = r'c:\Users\lfiel\Desktop\carhab model training\archive\Train\images'
     input_folder = os.path.join(input_folder_top, item)
     
-    annotations_folder_top = r'c:\Users\lfiel\Desktop\carhab model training\archive\Train\labels'
-    annotations_folder = os.path.join(annotations_folder_top, item)
+    if(item != 'background'):
+        annotations_folder_top = r'c:\Users\lfiel\Desktop\carhab model training\archive\Train\labels'
+        annotations_folder = os.path.join(annotations_folder_top, item)
     
     # Get the list of image files in the folder
     image_files = [f for f in os.listdir(input_folder) if f.endswith(('.png', '.jpg', '.jpeg'))]
@@ -115,23 +117,23 @@ for item in classes:
     # Loop through each image, apply augmentation, and save the new image
     for img_file in image_files:
         img_path = os.path.join(input_folder, img_file)
-        
-        annotation_path = os.path.join(annotations_folder, img_file.replace('.png', '.txt'))
-        
         image = Image.open(img_path).convert('RGB')
         image_np = np.array(image)
 
-    
-        # Load the YOLO annotation file
-        with open(annotation_path, 'r') as f:
-            bboxes = [list(map(float, line.strip().split())) for line in f.readlines()]
+        if(item != 'background'):
+            annotation_path = os.path.join(annotations_folder, img_file.replace('.png', '.txt'))
+            # Load the YOLO annotation file
+            with open(annotation_path, 'r') as f:
+                bboxes = [list(map(float, line.strip().split())) for line in f.readlines()]
         
 
         original_height, original_width = image_np.shape[:2]
 
+        #Factor by which new bounding box is scaled. This value was arrived at from trial and error.
         new_height = original_height * 1.75
         new_width = original_width * 1.75
 
+        #Get padding measurements for image after top-bottom padding.
         pad_height, pad_width = get_dynamic_padding(image_np, factor=1.0)
 
         pad_top = pad_height // 2
@@ -141,29 +143,37 @@ for item in classes:
         augmented_image = augmented['image']
 
         # Generate random noise for padding
-        noise_top_bottom = add_random_lines(pad_height, augmented_image.shape[1])  # Noise for top and bottom
+        fill_top_bottom = add_black_padding(pad_height, augmented_image.shape[1])  # Noise for top and bottom
     
 
         # Pad the image with random noise (top, bottom, left, and right)
         augmented_image_padded = np.vstack([
-            noise_top_bottom,
+            fill_top_bottom,
             augmented_image,
-            noise_top_bottom
+            fill_top_bottom
         ])
 
+        #Get padding measurements for image after top-bottom padding
         pad_height, pad_width = get_dynamic_padding(augmented_image_padded, factor=1.0)
-        noise_left_right = add_random_lines(pad_height, augmented_image.shape[1])  # Noise for left and right
+        fill_left_right = add_black_padding(pad_height, augmented_image.shape[1])  # Noise for left and right
 
         augmented_image_padded = np.hstack([
-            noise_left_right,
+            fill_left_right,
             augmented_image_padded, 
-            noise_left_right   
+            fill_left_right   
         ])
 
         
-        adjusted_bboxes = adjust_yolo_bboxes(
-            bboxes, original_width, original_height, new_width, new_height, pad_left, pad_top
-        )
+        if(item != 'background'):
+
+            #Save adjusted box labels, replace old annotations
+            adjusted_bboxes = adjust_yolo_bboxes(
+                bboxes, original_width, original_height, new_width, new_height, pad_left, pad_top
+            )
+
+            with open(annotation_path, 'w') as f:
+                for bbox in adjusted_bboxes:
+                    f.write(" ".join(map(str, bbox)) + "\n")
         
 
         # Convert back to PIL Image and save
@@ -172,14 +182,6 @@ for item in classes:
         # Save augmented image back to the folder with a new name
     
         output_image.save(img_path)
-
-        
-
-        #Save the adjusted YOLO annotations
-
-        with open(annotation_path, 'w') as f:
-            for bbox in adjusted_bboxes:
-               f.write(" ".join(map(str, bbox)) + "\n")
         
 
         print(f"Saved augmented image: {img_path}")
