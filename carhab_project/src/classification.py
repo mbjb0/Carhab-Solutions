@@ -5,7 +5,7 @@ from sort import *
 import numpy as np
 
 class RoadSignDetection:
-    def __init__(self, weights_path: str, confidence_threshold: float = 0.1, device: str = "cpu"):
+    def __init__(self, weights_path: str, confidence_threshold: float = 0.47, device: str = "cpu"):
         """
         Initialize the RoadSignDetection class with the path to the model weights,
         confidence threshold, and the device to run the model on.
@@ -16,7 +16,7 @@ class RoadSignDetection:
         self.yolo = YOLOv5(self.weights_path, device=self.device)
         self.tracker = Sort(max_age=30, min_hits=2, iou_threshold=0.3)
         #current names in self trained model, if replacing best.pt make sure to change these
-        self.names = ['STOP', 'CAUTION', 'RIGHT', 'LEFT', 'FORWARD', 'ROUNDABOUT']
+        self.names = ['STOP', 'CAUTION', 'RIGHT', 'LEFT', 'FORWARD', 'ROUNDABOUT', '','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','', '','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','']
 
     def get_highest_confidence_sign(self, frame):
         """

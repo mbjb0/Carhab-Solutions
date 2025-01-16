@@ -1,8 +1,10 @@
 import cv2
 import os
 from classification import RoadSignDetection
+import pathlib
 #from driving_logic import Instruction
-
+temp = pathlib.PosixPath
+pathlib.PosixPath = pathlib.WindowsPath
 #set this to zero when running on the car
 debug = 1
 depth = 0
