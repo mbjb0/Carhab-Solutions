@@ -34,10 +34,10 @@ class Instruction:
         self.depth_threshold = 2    # Minimum depth distance for execution
         
         # Sign classification IDs (to be set based on your detection model)
-        self.turn_left = ''    # ID for left turn sign
-        self.turn_right = ''   # ID for right turn sign
-        self.stop = ''         # ID for stop sign
-        self.u_turn = ''       # ID for U-turn sign
+        self.turn_left = 3    # ID for left turn sign
+        self.turn_right = 2   # ID for right turn sign
+        self.stop = 0         # ID for stop sign
+        self.u_turn = 5       # ID for U-turn sign
         
         # State tracking variables
         self.last_ID = 0       # Track last detected sign ID
