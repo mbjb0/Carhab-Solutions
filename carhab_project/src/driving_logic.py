@@ -141,17 +141,14 @@ class Instruction:
                 - A modifier and destination sign can be executed concurrently, but 2 modifiers or 2 destinations cannot.
             
             Sign Priority:
-                - Multiple signs may be visible at one time, currently this is not accounted for in both classification.py
-                and the driving algorithm. Only one tracker is passed (the one with the highest confidence)
-                - classification should pass list of trackers that is unpacked in driving logic and main.
+                - Multiple signs may be visible at one time.
+                - classification passes list of trackers that is unpacked in driving logic and main.
                 - A smarter algorithm should have a "highest priority" sign in the modifier and destination category based
                 on depth, "already-executed" flag (implemented using tracker ID), and consistency of sign visibility.
                 
 
         Still Needed:
-            - Need to add or improve flags for stop, forward, and caution, as 
-            these signs are still visible to the car after executing the sign action.
-            - Need to exclude modifier signs from centering algorithm.
+            - Need to add or improve flags for stop, forward, and caution.
             - Need Roam/Search loop. This could involve the car slowly spinning 360 deg if
             no signs are detected, or possibly using the previous sign input to influence the
             direction of spin/movement while seaching for another sign.
