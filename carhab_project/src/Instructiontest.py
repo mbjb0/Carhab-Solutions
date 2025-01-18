@@ -1,14 +1,14 @@
 """
 Instruction Control System for RC Car
-This module provides a control system that responds to detected signs/markers.
-It uses the Controls class for basic movement and adds logic for:
-- Sign detection and tracking
-- Centering on detected signs
-- Executing appropriate movements based on sign type
-- Managing state between different signs
+This module is for testing the driving logic on a local machine
+Without needing the controls library. Instead of control class calls
+there are just print statements. Do not use this code to test movement on the
+car.
+If you make changes to either instructiontest or driving_logic please mirror the changes
+on the other file
 """
 import time
-from controls import Controls
+
 
 class Instruction:
     """
@@ -26,7 +26,7 @@ class Instruction:
         - State tracking variables
         """
         # Initialize the car control interface
-        self.car = Controls()
+        #self.car = Controls()
         
         # Thresholds for detection and movement
         self.center_threshold = 10  # Acceptable pixel distance from center
@@ -71,46 +71,31 @@ class Instruction:
     def left_loop(self, debug):
         """Execute left turn sequence"""
         print("Executing left turn sequence")
-        if debug != 1:
-            self.car.turn_left(angle=45)
-            self.car.move_forward(speed=20)
         
     
     def right_loop(self, debug):
         """Execute right turn sequence"""
         print("Executing right turn sequence")
-        if debug != 1:
-            self.car.turn_right(angle=45)
-            self.car.move_forward(speed=20)
 
     
     def stop_loop(self, debug):
         """Execute stop sequence"""
         print("Executing stop sequence")
-        if debug != 1:
-            self.car.stop_motors()
-            time.sleep(2)  # Hold stop for 2 seconds
 
     
     def u_turn_loop(self, debug):
         """Execute U-turn sequence"""
         print("Executing U-turn sequence")
-        if debug != 1:
-            self.car.spin_in_place(direction="left", speed=30, duration=2.0)
 
     
     def caution_loop(self, debug):
         """Execute cautious (slow) driving"""
         print("Executing caution sequence")
-        if debug != 1:
-            self.car.move_forward(speed=5)
 
 
     def forward_loop(self, debug):
         """Drive towards sign"""
         print("Executing forward sequence")
-        if debug != 1:
-            self.car.move_forward(speed=20)
     
     def interpret_sign(self, tracker, frame_width, frame_height, depth, debug =3):
         """
@@ -189,11 +174,9 @@ class Instruction:
             if self.centerflag == 0 and abs(distance) > self.center_threshold:
                 if distance > self.center_threshold:
                     print("Turning left to center")
-                    self.car.turn_left(angle=10)
                     return
                 elif distance < (-1 * self.center_threshold):
                     print("Turning right to center")
-                    self.car.turn_right(angle=10)
                     return
         
             # Sign is centered - set flag and proceed
@@ -204,7 +187,6 @@ class Instruction:
             # But do not center on that sign.
             if depth > self.depth_threshold:
                 print("Moving forward to approach sign")
-                self.car.move_forward(speed=20)
                 if (modifier_found):
                     x1, y1, x2, y2, id, cls = highest_conf_modifier
                     print("Executing Modifier concurrent w/ approach")

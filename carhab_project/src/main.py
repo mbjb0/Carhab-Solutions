@@ -2,9 +2,13 @@ import cv2
 import os
 from classification import RoadSignDetection
 import pathlib
-#from driving_logic import Instruction
+#----------CHANGE Instructiontest to driving_logic to test car movement-----------#
+from Instructiontest import Instruction
 temp = pathlib.PosixPath
 pathlib.PosixPath = pathlib.WindowsPath
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 #set this to zero when running on the car
 debug = 1
 depth = 0
@@ -13,7 +17,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 weights_path = os.path.join(script_dir, 'weights', 'best.pt')
 
 road_sign_detector = RoadSignDetection(weights_path)
-#direct_car = Instruction
+direct_car = Instruction()
 cap = cv2.VideoCapture(0)
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -65,7 +69,7 @@ def draw_centered_crosshair(frame, cx, cy):
 
     return centered
 
-def draw_highest_conf_sign(frame):
+def draw_highest_conf_sign(frame): 
     highest_confidence_sign = road_sign_detector.get_highest_confidence_sign(frame)
     if(debug == 1):
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -93,11 +97,10 @@ while cap.isOpened():
 
     highest_conf_sign = draw_highest_conf_sign(modified_frame)
 
-    #direct_car.interpret_sign(tracker, frame_width, frame_height, depth, debug)
 
     if(tracker):
+        direct_car.interpret_sign(tracker, frame_width, frame_height, depth=3, debug =0)
         for bbox in tracker:
-            print(bbox)
             cx, cy = draw_centroid(modified_frame, bbox)
             centered = draw_centered_crosshair(modified_frame,cx,cy)
 
