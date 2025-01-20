@@ -27,9 +27,14 @@ class Instruction:
         """
         # Initialize the car control interface
         self.car = Controls()
+        self.forward_speed = 20
+        self.rotate_speed = 20
+        self.centering_angle = 10
+        self.turning_angle  = 45
+        self.centering_speed = 5
         
         # Thresholds for detection and movement
-        self.center_threshold = 10  # Acceptable pixel distance from center
+        self.center_threshold = 20  # Acceptable pixel distance from center
         self.depth_threshold = 2    # Minimum depth distance for execution
         
         # Sign classification IDs (to be set based on your detection model)
@@ -72,16 +77,16 @@ class Instruction:
         """Execute left turn sequence"""
         print("Executing left turn sequence")
         if debug != 1:
-            self.car.turn_left(angle=45)
-            self.car.move_forward(speed=20)
+            self.car.turn_left(angle=self.turning_angle)
+            self.car.move_forward(speed=self.rotate_speed)
         
     
     def right_loop(self, debug):
         """Execute right turn sequence"""
         print("Executing right turn sequence")
         if debug != 1:
-            self.car.turn_right(angle=45)
-            self.car.move_forward(speed=20)
+            self.car.turn_right(angle=self.turning_angle)
+            self.car.move_forward(speed=self.rotate_speed)
 
     
     def stop_loop(self, debug):
@@ -96,7 +101,7 @@ class Instruction:
         """Execute U-turn sequence"""
         print("Executing U-turn sequence")
         if debug != 1:
-            self.car.spin_in_place(direction="left", speed=30, duration=2.0)
+            self.car.spin_in_place(direction="left", speed=self.rotate_speed, duration=2.0)
 
     
     def caution_loop(self, debug):
@@ -110,7 +115,7 @@ class Instruction:
         """Drive towards sign"""
         print("Executing forward sequence")
         if debug != 1:
-            self.car.move_forward(speed=20)
+            self.car.move_forward(speed=self.forward_speed)
     
     def interpret_sign(self, tracker, frame_width, frame_height, depth, debug =3):
         """
@@ -141,14 +146,17 @@ class Instruction:
                 - A modifier and destination sign can be executed concurrently, but 2 modifiers or 2 destinations cannot.
             
             Sign Priority:
-                - Multiple signs may be visible at one time.
-                - classification passes list of trackers that is unpacked in driving logic and main.
+                - Multiple signs may be visible at one time, currently this is not accounted for in both classification.py
+                and the driving algorithm. Only one tracker is passed (the one with the highest confidence)
+                - classification should pass list of trackers that is unpacked in driving logic and main.
                 - A smarter algorithm should have a "highest priority" sign in the modifier and destination category based
                 on depth, "already-executed" flag (implemented using tracker ID), and consistency of sign visibility.
                 
 
         Still Needed:
-            - Need to add or improve flags for stop, forward, and caution.
+            - Need to add or improve flags for stop, forward, and caution, as 
+            these signs are still visible to the car after executing the sign action.
+            - Need to exclude modifier signs from centering algorithm.
             - Need Roam/Search loop. This could involve the car slowly spinning 360 deg if
             no signs are detected, or possibly using the previous sign input to influence the
             direction of spin/movement while seaching for another sign.
@@ -159,14 +167,12 @@ class Instruction:
         # in sorted list of trackers
         modifier_found = 0
         dest_found = 0
-        if len(tracker[0]) == 6:  # Fixed parentheses placement
+        if len(tracker[0]) == 6:
             for sign in tracker:
-                # For checking if value is in list/array, use 'in' operator
-                # Also use 'and' instead of '&' for boolean logic
-                if sign[5] in self.destinations and dest_found == 0:  # Assuming index 5 is class_id
+                if sign[5] in self.destinations and dest_found == 0:  
                     highest_conf_dest = sign
                     dest_found = 1
-                if sign[5] in self.modifiers and modifier_found == 0:  # Changed to check modifiers list
+                if sign[5] in self.modifiers and modifier_found == 0: 
                     highest_conf_modifier = sign
                     modifier_found = 1
         
@@ -186,11 +192,15 @@ class Instruction:
             if self.centerflag == 0 and abs(distance) > self.center_threshold:
                 if distance > self.center_threshold:
                     print("Turning left to center")
-                    self.car.turn_left(angle=10)
+                    self.car.turn_left(angle=self.centering_angle)
+                    self.car.move_forward(speed=self.centering_speed)
+
                     return
                 elif distance < (-1 * self.center_threshold):
                     print("Turning right to center")
-                    self.car.turn_right(angle=10)
+                    self.car.turn_right(angle=self.centering_angle)
+                    self.car.move_forward(speed=self.centering_speed)
+
                     return
         
             # Sign is centered - set flag and proceed
@@ -201,19 +211,20 @@ class Instruction:
             # But do not center on that sign.
             if depth > self.depth_threshold:
                 print("Moving forward to approach sign")
-                self.car.move_forward(speed=20)
                 if (modifier_found):
-                    x1, y1, x2, y2, id, cls = highest_conf_modifier
+                    xmx1, my1, mx2, my2, mid, mcls = highest_conf_modifier
                     print("Executing Modifier concurrent w/ approach")
-                    if cls == self.stop:
+                    if mcls == self.stop:
                     # Handle stop sign with state tracking
                         if self.stopflag == 0:
                             self.stop_loop(debug)
                             self.stopflag = 1
-                    elif cls == self.forward:
+                    elif mcls == self.forward:
                             self.forward_loop(debug)
-                    elif cls == self.caution:
+                    elif mcls == self.caution:
                             self.caution_loop(debug)
+                    else:
+                        self.car.move_forward(speed=self.forward_speed)
                 self.centerflag = 0  # Reset center flag while moving
                 return
             

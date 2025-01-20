@@ -29,7 +29,7 @@ class Instruction:
         #self.car = Controls()
         
         # Thresholds for detection and movement
-        self.center_threshold = 10  # Acceptable pixel distance from center
+        self.center_threshold = 20  # Acceptable pixel distance from center
         self.depth_threshold = 2    # Minimum depth distance for execution
         
         # Sign classification IDs (to be set based on your detection model)
@@ -126,14 +126,16 @@ class Instruction:
                 - A modifier and destination sign can be executed concurrently, but 2 modifiers or 2 destinations cannot.
             
             Sign Priority:
-                - Multiple signs may be visible at one time.
+                - Multiple signs may be visible at one time,.
                 - classification should pass list of trackers that is unpacked in driving logic and main.
                 - A smarter algorithm should have a "highest priority" sign in the modifier and destination category based
                 on depth, "already-executed" flag (implemented using tracker ID), and consistency of sign visibility.
                 
 
         Still Needed:
-            - Need to add or improve flags for stop, forward, and caution.
+            - Need to add or improve flags for stop, forward, and caution, as 
+            these signs are still visible to the car after executing the sign action.
+            - Need to exclude modifier signs from centering algorithm.
             - Need Roam/Search loop. This could involve the car slowly spinning 360 deg if
             no signs are detected, or possibly using the previous sign input to influence the
             direction of spin/movement while seaching for another sign.
@@ -185,16 +187,16 @@ class Instruction:
             if depth > self.depth_threshold:
                 print("Moving forward to approach sign")
                 if (modifier_found):
-                    x1, y1, x2, y2, id, cls = highest_conf_modifier
+                    mx1, my1, mx2, my2, mid, mcls = highest_conf_modifier
                     print("Executing Modifier concurrent w/ approach")
-                    if cls == self.stop:
+                    if mcls == self.stop:
                     # Handle stop sign with state tracking
                         if self.stopflag == 0:
                             self.stop_loop(debug)
                             self.stopflag = 1
-                    elif cls == self.forward:
+                    elif mcls == self.forward:
                             self.forward_loop(debug)
-                    elif cls == self.caution:
+                    elif mcls == self.caution:
                             self.caution_loop(debug)
                 self.centerflag = 0  # Reset center flag while moving
                 return
