@@ -29,7 +29,7 @@ class Instruction:
         #self.car = Controls()
         
         # Thresholds for detection and movement
-        self.center_threshold = 20  # Acceptable pixel distance from center
+        self.center_threshold = 40  # Acceptable pixel distance from center
         self.depth_threshold = 2    # Minimum depth distance for execution
         
         # Sign classification IDs (to be set based on your detection model)

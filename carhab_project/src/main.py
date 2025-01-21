@@ -2,6 +2,8 @@ import cv2
 import os
 from classification import RoadSignDetection
 import pathlib
+import time
+import numpy as np
 #----------CHANGE Instructiontest to driving_logic to test car movement-----------#
 from Instructiontest import Instruction
 temp = pathlib.PosixPath
@@ -19,6 +21,21 @@ weights_path = os.path.join(script_dir, 'weights', 'best.pt')
 road_sign_detector = RoadSignDetection(weights_path)
 direct_car = Instruction()
 cap = cv2.VideoCapture(0)
+
+#downsampling video for higher framerate
+process_width = 400
+process_height = 400
+
+display_width = 1080
+display_height = 720
+
+# Contrast parameters
+alpha = 1.5  # Increase for more contrast
+beta = 0
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, process_width)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, process_height)
+
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -51,7 +68,7 @@ def draw_centered_crosshair(frame, cx, cy):
     centered = 0
 
     frame_h, frame_w, _ = frame.shape
-    box_size = 200
+    box_size = 40
     center_x, center_y = frame_w // 2, frame_h // 2
     top_left = (center_x - box_size // 2, center_y - box_size // 2)
     bottom_right = (center_x + box_size // 2, center_y + box_size // 2)
@@ -69,19 +86,49 @@ def draw_centered_crosshair(frame, cx, cy):
 
     return centered
 
-def draw_highest_conf_sign(frame): 
-    highest_confidence_sign = road_sign_detector.get_highest_confidence_sign(frame)
+def draw_highest_conf_sign(frame, tracker): 
+    names = ['STOP', 'CAUTION', 'RIGHT', 'LEFT', 'FORWARD', 'ROUNDABOUT']
+    x1, y1, x2, y2, id, cls = tracker
+    highest_confidence_sign = names[cls]
     if(debug == 1):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 1
-        font_thickness = 2
-        color = (0, 255, 0)
+        font_scale = .9
+        font_thickness = 1
+        color = (0, 0, 255)
         (text_width, text_height), _ = cv2.getTextSize(highest_confidence_sign, font, font_scale, font_thickness)
         image_height, image_width = frame.shape[:2]
         x = (image_width - text_width) // 2  
         y = text_height + 10  
         cv2.putText(modified_frame, highest_confidence_sign, (x, y), font, font_scale, color, font_thickness)
     return highest_confidence_sign
+
+def draw_fps_and_inf_time(frame, fps, inf_time):
+    #Drawing FPS and Inference Time: 
+    height, width = frame.shape[:2]
+
+    text = f'Inference: {inference_time:.3f}s FPS: {fps:.1f}'
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.4
+    thickness = 1
+    color = (255, 255, 0)  # Green color
+    
+    # Get text size
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    
+    # Calculate position (centered, 30 pixels from bottom)
+    x = (width - text_width) // 2
+    y = height - 20
+    
+    # Add dark background for better visibility
+    cv2.rectangle(frame, 
+    (x - 10, y - text_height - 10),
+    (x + text_width + 10, y + 10),
+    (0, 0, 0),
+    -1)
+    
+    # Draw text
+    cv2.putText(frame, text, (x, y), font, font_scale, color, thickness)
+
 
 
 while cap.isOpened():
@@ -93,19 +140,29 @@ while cap.isOpened():
     need intel depthsense value for center of the screen or depth at centroid of tracker bounding box
     '''
 
-    modified_frame, tracker = road_sign_detector.process_frame(frame)
+    start_time = time.time()
+    
+    frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
 
-    highest_conf_sign = draw_highest_conf_sign(modified_frame)
+    modified_frame, inference_time, tracker = road_sign_detector.process_frame(frame)
 
+    
 
     if(tracker):
+        draw_highest_conf_sign(frame, tracker[0])
         direct_car.interpret_sign(tracker, frame_width, frame_height, depth=3, debug =0)
         for bbox in tracker:
             cx, cy = draw_centroid(modified_frame, bbox)
             centered = draw_centered_crosshair(modified_frame,cx,cy)
+    execute_time = time.time() - start_time
 
+    fps = 1.0 / execute_time
 
-    cv2.imshow("Road Sign Detection", modified_frame)
+    draw_fps_and_inf_time(modified_frame, fps, inference_time)
+
+    display_frame = cv2.resize(modified_frame, (display_width, display_height), interpolation=cv2.INTER_LINEAR)
+
+    cv2.imshow("Road Sign Detection", display_frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'): 
         break
