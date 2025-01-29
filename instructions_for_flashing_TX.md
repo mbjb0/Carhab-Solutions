@@ -1,7 +1,9 @@
 FLASHING JETSON TX2 STEPS:
 
 Install WSL ubuntu 16.04
+
 set to wsl 2
+
 download the sdk manager file sdkmanager_2.2.0-12028_amd64.deb from nvidia website
 
 Put jetson in forced recovery mode:
@@ -39,7 +41,9 @@ IN POWERSHELL:
 usbipd.exe list
 
 Identify the BUS ID of the Jetson (0955:7020 means its not in recovery mode, 0955:7c18 means its in recovery mode)
+
 the bus id should looks something like 1-2
+
 Attach the BUS ID to the WSL Linux distribution by running the following command:
 
 usbipd.exe bind --busid <BUSID> --force
@@ -49,11 +53,13 @@ usbipd.exe attach --wsl --busid=<BUSID> --auto-attach
 OPEN A NEW POWERSHELL TAB TO USE WSL, DO NOT STOP THE INFINITE ATTACH LOOP
 
 ENTER WSL:
+
 Validate that the Jetson device appears in the WSL Linux distribution by running the following command:
 
 lsusb
 
 sdkmanager --cli
+
 Log in, make nvidia developer account
 
 in menus select these options:
