@@ -9,7 +9,31 @@ from Instructiontest import Instruction
 temp = pathlib.PosixPath
 pathlib.PosixPath = pathlib.WindowsPath
 import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)  
+import socket
+
+def send_message(message, server_ip):
+    # Create a TCP/IP socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    try:
+        # Connect to the server
+        client_socket.connect((server_ip, 5000))
+        
+        # Send the message
+        client_socket.sendall(message.encode('utf-8'))
+        
+        # Receive the response
+        response = client_socket.recv(1024).decode('utf-8')
+        print(f"Server response: {response}")
+        
+    finally:
+        client_socket.close()
+
+server_ip = '192.168.1.107'  # Replace with your server's IP address
+message = "1, 2, 3, 4"
+
+
 
 #set this to zero when running on the car
 debug = 1
@@ -142,7 +166,7 @@ while cap.isOpened():
 
     start_time = time.time()
     
-    frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
+    frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)  
 
     modified_frame, inference_time, tracker = road_sign_detector.process_frame(frame)
 
@@ -150,10 +174,17 @@ while cap.isOpened():
 
     if(tracker):
         draw_highest_conf_sign(frame, tracker[0])
-        direct_car.interpret_sign(tracker, frame_width, frame_height, depth=3, debug =0)
+        Instruction_string = direct_car.interpret_sign(tracker, frame_width, frame_height, depth=3, debug =0)
+        print(f"INstruxtion Receive: {Instruction_string}")
         for bbox in tracker:
             cx, cy = draw_centroid(modified_frame, bbox)
             centered = draw_centered_crosshair(modified_frame,cx,cy)
+
+        if Instruction_string:
+            send_message(Instruction_string, server_ip)
+        
+        
+
     execute_time = time.time() - start_time
 
     fps = 1.0 / execute_time
