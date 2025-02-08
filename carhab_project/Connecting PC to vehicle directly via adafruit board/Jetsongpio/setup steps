@@ -1,0 +1,28 @@
+Pip3 install:
+
+wget https://bootstrap.pypa.io/pip/3.6/get-pip.py
+--2025-01-31 10:00:57--  https://bootstrap.pypa.io/pip/3.6/get-pip.py
+
+sudo python3 get-pip.py
+
+VScode install:
+wget https://update.code.visualstudio.com/1.84.0/linux-deb-arm64/stable -O code_arm64.deb
+
+sudo dpkg -i code_arm64.deb
+
+Python3 dev:
+sudo apt install python3-dev
+sudo apt install python3.6-dev  # Specifically for your Python version
+
+
+I2C dependencies:
+sudo apt install -y python3-smbus
+sudo apt install -y i2c-tools
+
+arduino stuff:
+pip3 install adafruit-circuitpython-servokit
+pip3 install Adafruit-Blinka
+pip3 install approxeng.input
+pip3 install evdev
+pip3 install approxeng.input
+
