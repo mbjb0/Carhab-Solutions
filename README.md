@@ -4,6 +4,6 @@
 <p>Team Names: Mohammad Alburaidi, Logan Field, Nasih Al-Barwani, Pranav Nallapaneni 
 <br>
 <br>
-<img src="path/to/image.jpg" alt="Alt text" width="300" height="200">
+<img src="Checkerboard_pattern.svg.png" alt="Alt text" width="300" height="200">
 List resources link here:
 </p>
