@@ -1,5 +1,4 @@
-# Carhab-Solutions
-<img src="Checkerboard_pattern.svg.png" alt="Alt text" width="300" height="200">
+<img src="logo.png" alt="Alt text" width="900" height="300">
 <p> **context** here </p> 
 <br>
 <p>Team Names: Mohammad Alburaidi, Logan Field, Nasih Al-Barwani, Pranav Nallapaneni 
