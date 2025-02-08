@@ -1,4 +1,4 @@
-<img src="logo_.png" alt="Alt text" width="900" height="300">
+<img src="logo.png" alt="Alt text" width="1000" height="200">
 <p> **context** here </p> 
 <br>
 <p>Team Names: Mohammad Alburaidi, Logan Field, Nasih Al-Barwani, Pranav Nallapaneni 
