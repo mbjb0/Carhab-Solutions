@@ -1,4 +1,4 @@
-<img src="logo.png" alt="Alt text" width="1000" height="350">
+<img src="metallogo.png" alt="Alt text" width="1000" height="350">
 <p> **context** here </p> 
 <br>
 <p>Team Names: Mohammad Alburaidi, Logan Field, Nasih Al-Barwani, Pranav Nallapaneni 
