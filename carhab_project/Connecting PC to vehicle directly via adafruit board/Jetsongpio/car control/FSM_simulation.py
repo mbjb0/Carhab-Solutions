@@ -31,12 +31,12 @@ GRAY = (128, 128, 128)
 SIGN_TYPES = {
     'STOP': {'id': 0, 'color': RED, 'text': 'STOP'},
     'CAUTION': {'id': 1, 'color': ORANGE, 'text': '!'},
-    'RIGHT': {'id': 2, 'color': BLUE, 'text': '→'},
-    'LEFT': {'id': 3, 'color': BLUE, 'text': '←'},
-    'FORWARD': {'id': 4, 'color': GREEN, 'text': '↑'},
-    'U-TURN': {'id': 5, 'color': GRAY, 'text': '⟲'}
+    'RIGHT': {'id': 2, 'color': BLUE, 'text': 'R'},
+    'LEFT': {'id': 3, 'color': BLUE, 'text': 'L'},
+    'FORWARD': {'id': 4, 'color': GREEN, 'text': 'F'},
+    'U-TURN': {'id': 5, 'color': GRAY, 'text': 'U'}
 }
-
+modifier_sign_ids = [0,1,4]
 # Car properties
 CAR_WIDTH = 40
 CAR_HEIGHT = 60
@@ -44,15 +44,16 @@ car_x = WINDOW_WIDTH // 2
 car_y = WINDOW_HEIGHT - 100
 car_angle = 0  # Angle in degrees
 car_speed = 0  # Current speed of the car
-MAX_SPEED = 10
+MAX_SPEED = 2.0
 ACCELERATION = 3
-BRAKE_POWER = .4
-TURN_FRICTION = .09
+BRAKE_POWER = .2
+TURN_FRICTION = 0
+
 
 # Sign properties
 SIGN_WIDTH = 40
 SIGN_HEIGHT = 40
-signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 - 100, 'type': 'RIGHT'}]  # Initial sign
+signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 -400, 'type': 'RIGHT'}]  # Initial sign
 current_sign_type = 'RIGHT'  # Default selected sign type
 
 
@@ -323,8 +324,11 @@ try:
 
     # Simulation state
     current_state = "initial"
+    current_mod_state = "none"
     state_time = 0
+    mod_state_time = 0
     last_update = time.time()
+
 
     # Main game loop
     running = True
@@ -356,6 +360,7 @@ try:
                         })
 
         prev_state = current_state
+        prev_mod_state = current_mod_state
         current_time = time.time()
         
         # Clear screen
@@ -375,6 +380,8 @@ try:
         closest_distance = float('inf')
         closest_sign_data = None
         
+        trackers = []
+
         for sign_center, sign_type in sign_centers:
             car_front_pos = calculate_car_front_position(car_center, car_angle, CAR_HEIGHT)
             sign_corners = calculate_sign_corners(sign_center, SIGN_WIDTH, SIGN_HEIGHT)
@@ -390,12 +397,14 @@ try:
                 dx = sign_center[0] - car_center[0]
                 dy = sign_center[1] - car_center[1]
                 distance = math.sqrt(dx*dx + dy*dy)
-                
-                if closest_tracker is None or distance < closest_distance:
+
+                trackers = trackers + tracker
+                if (closest_tracker is None or distance < closest_distance) and not tracker[0][5] in modifier_sign_ids : #EXCLUDE MODIFIER SIGNS FROM CLOSEST DEPTH CALCULATION
                     closest_distance = distance
                     closest_tracker = tracker
                     closest_sign_data = (car_front_pos, sign_corners, vectors)
         
+
         # Draw debug visualization for closest visible sign
         if closest_tracker:
             car_front_pos, sign_corners, vectors = closest_sign_data
@@ -403,6 +412,7 @@ try:
             tracker = closest_tracker  # Use closest sign for instruction system
         else:
             tracker = None
+            trackers = [[0]]
         
         # Draw UI buttons
         for button in buttons:
@@ -418,18 +428,21 @@ try:
                 new_state_time = state_time
                 tracker =[[0]]
             
-            instruction, amount, new_state, new_state_time = instruction_system.interpret_sign(
-                    tracker,
+            instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time = instruction_system.interpret_sign(
+                    trackers,
                     WINDOW_WIDTH,
                     WINDOW_HEIGHT,
                     depth,
                     current_state,
                     state_time,
-                    current_time
+                    current_mod_state,
+                    mod_state_time
                 )
             
             current_state = new_state
             state_time = new_state_time
+            current_mod_state = new_mod_state
+            current_mod_state_time = new_mod_state_time
             
         except Exception as e:
             print(f"Error in interpret_sign: {e}")
@@ -438,33 +451,49 @@ try:
         # Apply instruction with acceleration/braking
         if instruction == "forward":
             car_speed = min(car_speed*(amount/100) + ACCELERATION, MAX_SPEED)
+            #DONT EVEN ASK BRO
+            if(wheel_angle > 0):
+                car_angle += 1.1*(1-math.exp(abs(wheel_angle) / 145))
+            elif(wheel_angle < 0):
+                car_angle -= 1.1*(1-math.exp(abs(wheel_angle) / 145))
             
-        elif instruction == "brake" or instruction == "neutral":
+            car_x += math.sin(math.radians(car_angle)) * car_speed 
+            car_y -= math.cos(math.radians(car_angle)) * car_speed
+            
+        elif instruction == "neutral":
+            wheel_angle = 0
+
+        elif instruction == "brake":
             car_speed = max(0, car_speed - BRAKE_POWER)
+            car_x += math.sin(math.radians(car_angle)) * car_speed
+            car_y -= math.cos(math.radians(car_angle)) * car_speed
             
             
         elif instruction == "left":
-            car_angle -= (amount / 60)
-            car_speed = max(0, car_speed - TURN_FRICTION)
+            wheel_angle = min(amount, 70)
             
             
             
         elif instruction == "right":
-            car_angle += (amount / 60)
-            car_speed = max(0, car_speed - TURN_FRICTION)
+            wheel_angle = -1*min(amount, 70)
+
+        print(trackers)
+            
         
-        car_x += math.sin(math.radians(car_angle)) * car_speed * (amount / 100)
-        car_y -= math.cos(math.radians(car_angle)) * car_speed * (amount / 100)
             
         
         # Draw debug information
         font = pygame.font.Font(None, 36)
         texts = [
-            f"State: {current_state}",
+            f"Destination State: {current_state}",
+            f"Modifier State: {current_mod_state}",
             f"Depth: {depth:.2f}" if tracker else "Depth: N/A",
             f"Instruction: {instruction} ({amount})",
             f"Speed: {car_speed:.2f}",
-            f"State Time: {state_time:.2f}"
+            f"Wheel angle: {wheel_angle:.2f}",
+            f"Destination state Time: {state_time:.2f}",
+            f"Modifier state Time: {mod_state_time:.2f}",
+            "NOTE: signs placed while in Car FOV will cause logic issues"
         ]
         
         # Add tracker coordinates if a tracker is detected
@@ -484,6 +513,11 @@ try:
             state_time = state_time + (time.time() - current_time)
         else:
             state_time = 0
+
+        if prev_mod_state == current_mod_state:
+            mod_state_time = mod_state_time + (time.time() - current_time)
+        else:
+            mod_state_time = 0
             
         pygame.display.flip()
         clock.tick(FPS)
