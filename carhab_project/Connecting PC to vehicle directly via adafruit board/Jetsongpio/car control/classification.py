@@ -6,7 +6,7 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import time
 class RoadSignDetection:
-    def __init__(self, weights_path: str, confidence_threshold: float = 0.47, device: str = "cpu"):
+    def __init__(self, weights_path: str, confidence_threshold: float = 0.48, device: str = "cpu"):
         """
         Initialize the RoadSignDetection class with the path to the model weights,
         confidence threshold, and the device to run the model on.

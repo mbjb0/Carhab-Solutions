@@ -9,7 +9,7 @@ from adafruit_pca9685 import PCA9685
 
 # Constants
 MAX_THROTTLE = 80
-MIN_THROTTLE = 50
+MIN_THROTTLE = 10
 SERVO_CHANNEL = 0
 THROTTLE_CHANNEL = 1
 
@@ -30,13 +30,46 @@ class Controls:
         try:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.pca = PCA9685(self.i2c, address=0x40)
-            self.pca.frequency = 50  # 50Hz for standard servos
+            self.pca.frequency = 50
+            
+            print("Press 'w' to start ESC initialization, 'n' to skip... Press ESC down. it should go green-red-off release at off and press w right after releasing \n" 
+                  "Unplug/remove the ground wire before running the program when you are going to intialize")
+            if self._wait_for_key('w', 'n') == 'w':
+                print("Hold your thumb on the ESC button until the red light turns itself off. When you let go it will flash once")
+                self.forward(80)
+                time.sleep(5)
+                
+                print("Press 'w' to calibrate forward...")
+                self._wait_for_key('w')
+                self.reverse(80)
+                time.sleep(5)
+                
+                print("Press 'w' to calibrate reverse...")
+                self._wait_for_key('w')
+                self.brake()
+                time.sleep(5)
+                
+                print("Press 'w' to return to neutral...")
+                self._wait_for_key('w')
+                self.brake()
+                time.sleep(5)
+            
             self.turn_center()
-            self.brake()
             print("Done initializing")
         except Exception as e:
             print(f"Unexpected error: {e}")
             raise
+
+    def _wait_for_key(self, *keys):
+        while True:
+            try:
+                pressed = input().lower()
+                if pressed in keys:
+                    return pressed
+            except KeyboardInterrupt:
+                print("\nProgram stopped by user")
+                self.cleanup()
+                raise
 
     def _set_pwm(self, channel, on, off):
         """Set PWM with boundary checking"""
@@ -71,29 +104,39 @@ class Controls:
         speed = max(0, min(100, speed))
         
         if reverse:
-            # For reverse, interpolate between neutral and max reverse
-            speed_range = ESC_NEUTRAL - ESC_MAX_REVERSE
-            pulse = ESC_NEUTRAL - int((speed / 100) * speed_range)
+            # For reverse, first go to neutral, then to reverse
+            self._set_pwm(THROTTLE_CHANNEL, 0, ESC_NEUTRAL)
+            time.sleep(0.1)  # Brief pause at neutral
+            
+            # Now calculate reverse PWM
+            pwm_range = abs(ESC_MAX_REVERSE - ESC_NEUTRAL)
+            pulse = ESC_NEUTRAL - int((speed / 100.0) * pwm_range)
+            return max(ESC_MAX_REVERSE, min(ESC_NEUTRAL, pulse))
         else:
-            # For forward, interpolate between neutral and max forward
             speed_range = ESC_MAX_FORWARD - ESC_NEUTRAL
             pulse = ESC_NEUTRAL + int((speed / 100) * speed_range)
-            
-        return pulse
+            return pulse
 
     def forward(self, speed):
         """Move forward at specified speed"""
         speed = MAX_THROTTLE if (speed + MIN_THROTTLE) > MAX_THROTTLE else (speed + MIN_THROTTLE)
-        print(f"Forward Speed: {speed}%")
+        print(f"forward Speed: {speed}%")
         pwm_value = self._speed_to_pwm(speed)
         self._set_pwm(THROTTLE_CHANNEL, 0, pwm_value)
 
+    def forwardslow(self):
+        """Move forward at minimum throttle speed"""
+        print(f"Forward Slow: {MIN_THROTTLE}%")
+        pwm_value = self._speed_to_pwm(MIN_THROTTLE)
+        self._set_pwm(THROTTLE_CHANNEL, 0, pwm_value)
+
     def reverse(self, speed):
-        """Move in reverse at specified speed"""
+        """Move backwards at specified speed"""
         # Apply the same throttle limits as forward
         speed = MAX_THROTTLE if (speed + MIN_THROTTLE) > MAX_THROTTLE else (speed + MIN_THROTTLE)
-        print(f"Reverse Speed: {speed}%")
+        print(f"backwards Speed: {speed}%")
         pwm_value = self._speed_to_pwm(speed, reverse=True)
+        print("pwm value: ", pwm_value)
         self._set_pwm(THROTTLE_CHANNEL, 0, pwm_value)
 
     def brake(self):

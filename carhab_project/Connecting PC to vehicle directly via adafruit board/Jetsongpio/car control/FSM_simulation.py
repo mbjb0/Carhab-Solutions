@@ -4,7 +4,7 @@ import time
 import sys
 
 try:
-    from FSM_test import Instruction
+    from FSM_instruct import Instruction
 except ImportError:
     print("Error: Could not import Instruction class from FSM_test.py")
     print("Make sure FSM_test.py is in the same directory as this script")
@@ -44,8 +44,8 @@ car_x = WINDOW_WIDTH // 2
 car_y = WINDOW_HEIGHT - 100
 car_angle = 0  # Angle in degrees
 car_speed = 0  # Current speed of the car
-MAX_SPEED = 2.0
-ACCELERATION = 3
+MAX_SPEED = 5.0
+ACCELERATION = 4
 BRAKE_POWER = .2
 TURN_FRICTION = 0
 
@@ -453,9 +453,9 @@ try:
             car_speed = min(car_speed*(amount/100) + ACCELERATION, MAX_SPEED)
             #DONT EVEN ASK BRO
             if(wheel_angle > 0):
-                car_angle += 1.1*(1-math.exp(abs(wheel_angle) / 145))
+                car_angle += 1.3*(1-math.exp(abs(wheel_angle) / 95))
             elif(wheel_angle < 0):
-                car_angle -= 1.1*(1-math.exp(abs(wheel_angle) / 145))
+                car_angle -= 1.3*(1-math.exp(abs(wheel_angle) / 95))
             
             car_x += math.sin(math.radians(car_angle)) * car_speed 
             car_y -= math.cos(math.radians(car_angle)) * car_speed
