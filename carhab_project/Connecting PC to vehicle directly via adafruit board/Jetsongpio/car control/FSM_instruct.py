@@ -10,7 +10,7 @@ class Instruction:
         # Initialize the car control interface
         
         # Thresholds for detection and movement
-        self.center_threshold = 70  # Acceptable pixel distance from center
+        self.center_threshold = 10  # Acceptable pixel distance from center
         self.depth_threshold = 1   # Minimum depth distance for execution
         
         self.turn_left = 3    # ID for left turn sign
@@ -43,7 +43,7 @@ class Instruction:
         # Return distance from center
         return centroid_x - center_x
     
-    def interpret_sign(self, tracker, frame_width, frame_height, depth, current_state, state_time, current_mod_state, mod_state_time):
+    def interpret_sign(self, tracker, frame_width, frame_height, depth, current_state, state_time, current_mod_state, mod_state_time, executed_id, view_depth, obstacle_counter):
             # Unpack tracker data to find highest confidence destination and modifier
             # in sorted list of trackers
             modifier_found = 0
@@ -58,43 +58,54 @@ class Instruction:
 
             initial_exec_time = 1
             
-            #LEFT TURN SIGN VALUES MODIFY UNTIL YOU REACH 90 DEGREE TURN AT THE END OF EXECUTION
+            #LEFT TURN
             left_sign_exec_time = .2
-            left_sign_exec_forward_time = .7 + left_sign_exec_time
+            left_sign_exec_forward_time = .5 + left_sign_exec_time
             left_sign_angle_turn_amount = 70
-            left_sign_forward_move_amount = 10
-
-            #LEFT TURN SIGN VALUES MODIFY UNTIL YOU REACH 90 DEGREE TURN AT THE END OF EXECUTION
+            #RIGHT TURN
             right_sign_exec_time = .2
-            right_sign_exec_forward_time = .7 + right_sign_exec_time
+            right_sign_exec_forward_time = .5 + right_sign_exec_time
             right_sign_angle_turn_amount = 70
-            right_sign_forward_move_amount = 10
+            
+            #these are shared between right and left turn sign
+            directional_sign_forward_move_amount = 8
+            directional_sign_polling_time = .7
             
             #STOP SIGN VALUES
             stop_sign_exec_time = 2
 
             #FORWARD SIGN VALUES
 
-            forward_sign_additional_speed = 10
+            forward_sign_multiply_amount = 1.5
 
             #U-TURN SIGN VALUES:
 
-            u_turn_sign_exec_time = .5
-            u_turn_sign_exec_forward_time = 3.5*u_turn_sign_exec_time
-            u_turn_sign_angle_turn_amount = 60
-            u_turn_sign_forward_move_amount = 10
+            u_turn_sign_turn_time = .01
+            u_turn_sign_reverse_time = 1.1 + u_turn_sign_turn_time
+            u_turn_brake_time = u_turn_sign_reverse_time +.2
+            u_turn_sign_second_turn_time = u_turn_brake_time + .1
+            u_turn_sign_forward_time = u_turn_sign_second_turn_time + .85
+            u_turn_sign_angle_turn_amount = 70
+            u_turn_sign_forward_move_amount = 8
 
 
             #CENTERING
-            center_turn_time = .1
+            center_turn_time = .05
             center_forward_time = .05 + center_turn_time
-            center_brake_time = 0
-            center_forward_speed = 10
+            center_brake_time = center_turn_time + center_turn_time
+            center_forward_speed = 8
 
             #CAUTION SIGN VALUES
 
-            caution_sign_additional_brake_time = 0
-            #.5 + center_forward_time + center_turn_time + center_brake_time
+            caution_sign_additional_brake_time = .1
+
+            #obstacle detection:
+            obstacle_detected_brake_time = .5
+            obstacle_detected_center_time = obstacle_detected_brake_time + .1
+            obstacle_detected_reverse_time = obstacle_detected_brake_time + obstacle_detected_center_time + 1
+
+            obstacle_reverse_amount = 20
+
 
 
             prev_state = current_state
@@ -133,7 +144,10 @@ class Instruction:
                 distance = 0
 
             
-            #Sign state machines: these execute no matter if a sign is currently in view or not, so they can complete fully
+            #///////////////////////////////////////////////////MODIFIER SIGN STATE LOGIC////////////////////////////////////////////////////////////
+
+            # Just sets the modifier state to the current detected class of modifier. This means that multiple modifiers cannot be applied at a time.
+            # In that case the highest modifer will be executed.
 
             if(modifier_found):
                 if(mcls == self.stop):
@@ -141,57 +155,135 @@ class Instruction:
                 elif(mcls == self.caution):
                     current_mod_state = "caution"
                 elif(mcls == self.forward):
-                    current_mod_state = "forward"
-            else:
+                    current_mod_state = "forward_sign"
+            elif(current_mod_state != "stop"):
                 current_mod_state = "none"
             
 
+            # ////////////////////////////////////////////////OVERRIDE STATES//////////////////////////////////////////////////////////////////////////////
+            # These return early to confirm no other inputs are accepted, as they require the car do stop, or reverse while other instructions are in view
+            # Stop sign logic. Its very important that this is before every other instruction, doesn't allow anything else to happen until the 
+            # vehicle has waited.
+            if(current_mod_state == "stop" and mod_state_time <= stop_sign_exec_time):
+                instruction = "brake"
+                amount = 0
+                return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
+            
+            if(current_state == "obstacle_detected"):
+                if(state_time <= obstacle_detected_brake_time):
+                    instruction = "brake"
+                    #print("hhhhh")
+                    amount = 0
+                    return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
+                elif(state_time <= obstacle_detected_center_time):
+                    instruction = "neutral"
+                    amount = 0
+                    return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
+                elif(state_time <= obstacle_detected_reverse_time):
+                    instruction = "reverse"
+                    amount = obstacle_reverse_amount
+                    return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
+                else:
+                    current_state = "initial"
+
+            
+            if(view_depth <= 0.25):
+                obstacle_counter += 1
+                if(obstacle_counter >= 2):
+                    current_state = "obstacle_detected"
+                    obstacle_counter = 0
+                    instruction = "brake"
+                    amount = 0
+                    return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
+                    #print("huh")
+            else:
+                obstacle_counter = 0
+
+            
+
+                
+                
+            
+
+            #//////////////////////////////////////////////////SIGN EXECUTION INSTRUCTION LOGIC/////////////////////////////////////////////////////////
+
+            # For left and right sign, the idea is to have the car turn until it sees a new sign. So when the state is set to right or left sign, the 
+            # car turns it's wheels, waits until it can store the id of the right sign in executed_id, then enters "directional sign polling". In directional
+            # sign polling, the car accelerates (since it turned its wheels earlier this means its following an arc in this stage) until a new sign is detected,
+            # indicated by a different ID. U turn is unique since it requires the car to turn 180 degrees unimpeded, so I just have it on a timer to be adjusted.
 
             if(current_state == "right_sign"):
                 if(state_time <= right_sign_exec_time):
                     instruction = "right"
                     amount = right_sign_angle_turn_amount
                 elif(state_time <= right_sign_exec_forward_time):
-                    instruction = "forward"
-                    amount = right_sign_forward_move_amount
-                else: 
-                    current_state = "initial"
+                    current_state = "directional_sign_polling"
+                else:
+                    current_state = "intial"
 
-            elif(current_state == "left_sign"):
+            
+            if(current_state == "left_sign"):
                 if(state_time <= left_sign_exec_time):
                     instruction = "left"
                     amount = left_sign_angle_turn_amount
                 elif(state_time <= left_sign_exec_forward_time):
-                    instruction = "forward"
-                    amount = left_sign_forward_move_amount
+                    current_state = "directional_sign_polling"
                 else:
-                    
+                    current_state = "intial"
+
+            if(current_state == "directional_sign_polling"):
+                if(state_time <= directional_sign_polling_time):
+                    if(dest_found):
+                        if(id != executed_id):
+                            current_state = "initial"
+                        else:
+                            instruction = "forward"
+                            amount = directional_sign_forward_move_amount 
+                    else:
+                        instruction = "forward"
+                        amount = directional_sign_forward_move_amount
+                else:
                     current_state = "initial"
 
 
             elif(current_state == "u-turn"):
-                if(state_time <= u_turn_sign_exec_time):
+                if(state_time <= u_turn_sign_turn_time):
+                    instruction = "right"
+                    amount = u_turn_sign_angle_turn_amount
+                elif(state_time <= u_turn_sign_reverse_time):
+                    instruction = "reverse"
+                    amount = 30
+                elif(state_time <= u_turn_brake_time):
+                    instruction = "brake"
+                    amount = 0
+                elif(state_time <= u_turn_sign_second_turn_time):
                     instruction = "left"
                     amount = u_turn_sign_angle_turn_amount
-                elif(state_time <= u_turn_sign_exec_forward_time):
+                elif(state_time <= u_turn_sign_forward_time):
                     instruction = "forward"
-                    amount = u_turn_sign_forward_move_amount
+                    amount = 8
                 else:
-                    
                     current_state = "initial"
             
+            #///////////////////////////////////////////////////////////Centering State Logic///////////////////////////////////////////////////////////////////////////////
             elif dest_found:
-                
-                #STEP 1: IF reached depth threshold, execute destination sign
+                #if destination sign is at a distance below depth threshold, set state to execute corresponding sign
                 if depth < self.depth_threshold:
                     if cls == self.turn_right:
                         current_state = "right_sign"
+                        executed_id = id
                     if cls == self.turn_left:
                         current_state = "left_sign"
+                        executed_id = id
                     if cls == self.u_turn:
                         current_state = "u-turn"
+                        executed_id = id
 
-                # STEP 2: Center on sign if not centered
+                # if the destination sign is at a distance above the depth threshold and the state is one that is able
+                # to be interrupted, set state to center and approach sign. Left or right center is chosen if the distance 
+                # of the centroid of the sign is beyond center_threshold pixels from the center, forward is chosen
+                # if it is within that range.
+
                 if (current_state == "center_left" or current_state == "center_right" or current_state == "move_forward" or current_state == "initial" or current_state == "centerpolling") and depth > self.depth_threshold:
                     if distance > self.center_threshold:
                         current_state = "center_right"
@@ -202,22 +294,35 @@ class Instruction:
                     else:
                         current_state = "move_forward"
                 
-                
+            #////////////////////////////////////////////////////////Modifier Logic////////////////////////////////////////////////////////////////////////////////////////////
 
-            #Modifiers for the speed of centering/approaching sign
+            # Modifiers for the speed of centering/approaching sign
+            # Caution increases the time between pulses of the motor while centering/approaching
+            # by adding to the brake time variable
+            # Forward changes a multiplier that is applied to the centering throttle amount
+            # so that when it is visible the car moves faster
 
             if(current_mod_state == "caution"):
                 center_brake_time += caution_sign_additional_brake_time
             
             if(current_mod_state == "forward"):
-                center_forward_speed += forward_sign_additional_speed
+                forward_sign_multiplier = forward_sign_multiply_amount
+            else:
+                forward_sign_multiplier = 1
             
-            #Centering instruction code. Includes stop sign functionality.
-            #Turn amount is determined by distance from center of screen. There is a small delay
-            #To allow the wheels to turn, then the throttle is set to forward, then after a delay,
-            #throttle is set to brake. The braking is currently set to 0s, which makes the seperated
-            #turning and throttle unnecessary, but in caution mode, or if the user wants distinct turning and
-            #throttle periods, it is useful.
+            #//////////////////////////////////////////////////////Centering instructions//////////////////////////////////////////////////////////////////////////////////////
+
+            # entered when a destination is detected but is far enough away to be beneath minimum depth
+
+            # center_left and center_right turn amounts are determined by distance of sign centroid to center
+            # of screen (represented by distance variable) The multiplier 3.4 was arrived at by testing and will
+            # have to change depending on resolution
+
+            # Throttle amount in center_left, center_right, center_forward, center_polling determined by depth to
+            # the destination sign. As the sign gets closer the car will slow down, maximum speed is 10, minmum is 5
+
+            # if stop sign modifier is visible, car will brake until the mod_state_time for the stop sign has reached
+            # the time set by mod_state_time
 
             if(current_state == "center_left"):
                 if(current_mod_state == "stop" and mod_state_time <= stop_sign_exec_time):
@@ -225,10 +330,10 @@ class Instruction:
                 else:
                     if(state_time <= center_turn_time):
                         instruction = "left"
-                        amount = abs(int((100*1*distance)/300))
+                        amount = abs(int(distance/3.4))
                     elif(state_time <= center_forward_time):
                         instruction = "forward"
-                        amount = center_forward_speed
+                        amount = min((5+depth), 10) * forward_sign_multiplier
                     elif(state_time <= center_brake_time):
                         instruction = "brake"
                     else:
@@ -240,10 +345,10 @@ class Instruction:
                 else:
                     if(state_time <= center_turn_time):
                         instruction = "right"
-                        amount = abs(int((100*1*distance)/300))
+                        amount = abs(int(distance/3.4))
                     elif(state_time <= center_forward_time):
                         instruction = "forward"
-                        amount = center_forward_speed
+                        amount = amount = min((5+depth), 10) * forward_sign_multiplier
                     elif(state_time <= center_brake_time):
                         instruction = "brake"
                     else:
@@ -258,7 +363,7 @@ class Instruction:
                         amount = center_forward_speed
                     elif(state_time <= center_forward_time):
                         instruction = "forward"
-                        amount = center_forward_speed
+                        amount = amount = min((5+depth), 10) * forward_sign_multiplier
                     elif(state_time <= center_brake_time):
                         instruction = "brake"
                     else:
@@ -269,16 +374,17 @@ class Instruction:
             # initial first. If the dest sign comes out of view the car returns to intial state.
             if(current_state == "centerpolling"):
                 instruction = "forward"
-                amount = center_forward_speed
+                amount = min((6+depth), 10) * forward_sign_multiplier
                 state_time = 0
                 if(dest_found != 1):
                     current_state = "initial"
             
-            #Initial state
+            # Initial state. The car brakes, waits a short amount of time, and sets state time to 0 to flush out any stuck
+            # sign logic that depends on state time.
             if(current_state == "initial"):
                 instruction = "brake"
                 if(state_time >= initial_exec_time):
                     state_time = 0
             
-            return instruction, amount, current_state, state_time, current_mod_state, mod_state_time
+            return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
                 

@@ -68,8 +68,6 @@ frame_width = color_frame.get_width()   # Will be 640
 frame_height = color_frame.get_height() # Will be 480
 
 def execute_instruction(instruction, amount, centerdepthlimit):
-    if(centerdepthlimit == 1):
-        rover.brake()
     
     if(instruction == "left"):
         rover.turn_left(amount)
@@ -84,11 +82,9 @@ def execute_instruction(instruction, amount, centerdepthlimit):
     elif(instruction == "reverse"):
         rover.reverse(amount)
 
-    elif(instruction == "forward" and centerdepthlimit != 1):
+    elif(instruction == "forward"):
         print(iterationcount)
-        rover.forward(10)
-        #time.sleep(.0)
-        #rover.brake()
+        rover.forward(min(amount, 10))
 
     elif(instruction == "brake"):
         rover.brake()
@@ -232,7 +228,7 @@ def draw_centroid(frame, bbox, depth_frame):
 
     return cx, cy, depth
 
-def get_min_depth_in_box(depth_frame, bbox, depth_scale, min_valid_depth=0.001):
+def get_min_depth_in_box(depth_frame, bbox, depth_scale, min_valid_depth=0.17):
     """
     Get the minimum valid depth value within a bounding box region.
     
@@ -326,7 +322,7 @@ def draw_centered_crosshair(frame, cx, cy):
     centered = 0
 
     frame_h, frame_w, _ = frame.shape
-    box_size = 140
+    box_size = 10
     center_x, center_y = frame_w // 2, frame_h // 2
     top_left = (center_x - box_size // 2, center_y - box_size // 2)
     bottom_right = (center_x + box_size // 2, center_y + box_size // 2)
@@ -388,7 +384,7 @@ def draw_fps_and_inf_time(frame, fps, inf_time, current_state, current_mod_state
     cv2.putText(frame, text, (x, y), font, font_scale, color, thickness)
 
 
-def visualize_state(frame, instruction, current_state, current_mod_state, current_mod_state_time, state_time, amount, last_angle):
+def visualize_state(frame, instruction, current_state, current_mod_state, current_mod_state_time, state_time, amount, last_angle, executed_id):
     """
     Draws state information and turning indication directly on the input frame.
     The turn visualization shows deviation from center, where larger angles
@@ -416,7 +412,8 @@ def visualize_state(frame, instruction, current_state, current_mod_state, curren
         f"Current Mod State: {current_mod_state}",
         f"Mod State Time: {current_mod_state_time:.2f}s",
         f"State Time: {state_time:.2f}s",
-        f"Amount: {amount}"
+        f"Amount: {amount}",
+        f"Executed id: {executed_id}"
     ]
     
     for i, text in enumerate(texts):
@@ -473,6 +470,8 @@ current_mod_state = "none"
 mod_state_time = 0
 iterationcount = 0
 last_angle = 0
+executed_id = 0
+obstacle_counter =0
 
 try:
     while True:
@@ -498,7 +497,7 @@ try:
         depth_data = np.asanyarray(filtered_depth.get_data())
         h, w = depth_data.shape
 
-        color_image_crop = .6
+        color_image_crop = 1
 
         # Define crop parameters
         crop_percent = 0.67 * color_image_crop  # This will crop to center 65% of image
@@ -521,10 +520,9 @@ try:
         # If frames are not available, continue to the next iteration
         if not color_frame or not filtered_depth:
             continue
-        # Get center depth - add this after you get the frames but before processing
 
-        box_width = 190
-        box_height = 190  # Making it square, adjust if you want different dimensions
+        box_width = 400
+        box_height = 200
 
         # Calculate box coordinates to center it in frame
         center_box = [
@@ -538,7 +536,9 @@ try:
         
         if(min_depth <= 0.3):
             depth_limit = 1
+            center_box_color = (0,0,255)
         else:
+            center_box_color = (255,255,255)
             depth_limit = 0
 
         # Convert frames to numpy arrays
@@ -565,7 +565,7 @@ try:
         cv2.rectangle(color_image, 
         (center_box[0], center_box[1]), 
         (center_box[2], center_box[3]), 
-        (0, 255, 255),  # Yellow color
+        center_box_color,  
         2)
 
         if min_depth is not None:
@@ -651,7 +651,9 @@ try:
 
         if(centroid_depth == 0):
             centroid_depth = 100
-        instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time = direct_car.interpret_sign(tracker, frame_width, frame_height, sign_min_depth, current_state, state_time, current_mod_state, mod_state_time )
+
+        instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time, executed_id, obstacle_counter = direct_car.interpret_sign(tracker, frame_width, frame_height, sign_min_depth, 
+                                                                                                                                   current_state, state_time, current_mod_state, mod_state_time, executed_id, min_depth, obstacle_counter)
 
         if(iterationcount >= 20):
             iterationcount = 0
@@ -683,7 +685,7 @@ try:
         fps = 1.0 / execute_time
 
         if(debug == 1):
-            combined_image = overlay_depth_on_color(color_image, depth_visualization, alpha=1)
+            combined_image = overlay_depth_on_color(color_image, depth_visualization, alpha=.5)
         else:
             combined_image = color_image
 
@@ -697,7 +699,7 @@ try:
         
         display_frame, last_angle = visualize_state(display_frame, instruction, current_state, 
                               current_mod_state, current_mod_state_time, 
-                              state_time, amount, last_angle)
+                              state_time, amount, last_angle, executed_id)
 
         cv2.imshow("Road Sign Detection", display_frame)
 

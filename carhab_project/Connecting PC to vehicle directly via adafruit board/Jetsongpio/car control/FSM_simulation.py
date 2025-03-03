@@ -328,6 +328,8 @@ try:
     state_time = 0
     mod_state_time = 0
     last_update = time.time()
+    executed_id = 0
+    obstacle_counter = 0
 
 
     # Main game loop
@@ -428,7 +430,7 @@ try:
                 new_state_time = state_time
                 tracker =[[0]]
             
-            instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time = instruction_system.interpret_sign(
+            instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time, executed_id, obstacle_counter = instruction_system.interpret_sign(
                     trackers,
                     WINDOW_WIDTH,
                     WINDOW_HEIGHT,
@@ -436,7 +438,8 @@ try:
                     current_state,
                     state_time,
                     current_mod_state,
-                    mod_state_time
+                    mod_state_time,
+                    executed_id, depth, obstacle_counter
                 )
             
             current_state = new_state
@@ -456,6 +459,17 @@ try:
                 car_angle += 1.3*(1-math.exp(abs(wheel_angle) / 95))
             elif(wheel_angle < 0):
                 car_angle -= 1.3*(1-math.exp(abs(wheel_angle) / 95))
+            
+            car_x += math.sin(math.radians(car_angle)) * car_speed 
+            car_y -= math.cos(math.radians(car_angle)) * car_speed
+
+        if instruction == "reverse":
+            car_speed = -1*min(car_speed*(amount/100) + ACCELERATION, MAX_SPEED)
+            #DONT EVEN ASK BRO
+            if(wheel_angle > 0):
+                car_angle -= 1.5*(1-math.exp(abs(wheel_angle) / 95))
+            elif(wheel_angle < 0):
+                car_angle += 1.5*(1-math.exp(abs(wheel_angle) / 95))
             
             car_x += math.sin(math.radians(car_angle)) * car_speed 
             car_y -= math.cos(math.radians(car_angle)) * car_speed
