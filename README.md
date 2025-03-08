@@ -4,5 +4,5 @@
 <p>Team Names: Mohammad Alburaidi, Logan Field, Nasih Al-Barwani, Pranav Nallapaneni 
 <br>
 <br>
-[![Demo](https://img.youtube.com/vi/xU2ndvtgvsw/0.jpg)](https://www.youtube.com/watch?v=xU2ndvtgvsw)
+[![Carhab Solutions: Autonomous Driving Senior Project Video Demo](https://i.ytimg.com/vi/xU2ndvtgvsw/hqdefault.jpg)](https://www.youtube.com/watch?v=xU2ndvtgvsw)
 </p>
