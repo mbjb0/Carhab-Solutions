@@ -1,0 +1,4 @@
+best.pt: The custom roboflow dataset yolov5s model using roboflow
+bestyolov5m.pt: GTRSB trained yolov5m model
+bestyolov5sgrayscaleaugmentations: GTRSB trained yolov5s model with grayscale augmentations
+bestyolov5snoaugmentations: GTRSB trained yolov5s model no augmentations
