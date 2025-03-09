@@ -89,7 +89,7 @@ The driving algorithm functions as a state machine with the following primary st
 </p>
 <br>
 <p><strong>Acknowledgements</strong></p>
-<p>We extend our gratitude to the A.R.M.S. team for their pioneering work with the Traxxas RC platform, which provided valuable insights for our hardware integration. Special thanks to our faculty advisor for guidance throughout this project.</p>
+<p>We extend our gratitude to Professor Chuah and Kartik for their help and guidance throughout the quarter.</p>
 <br>
 <p><strong>References</strong></p>
 <p>
