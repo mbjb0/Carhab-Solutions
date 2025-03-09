@@ -3,3 +3,5 @@ opencv-python-headless
 yolov5
 torch
 torchvision
+adafruit-circuitpython-pca9685
+adafruit-blinka
