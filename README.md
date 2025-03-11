@@ -7,7 +7,7 @@
 <br>
 <p><strong>Features</strong></p>
 <p><strong>Sign-Based Navigation System</strong><br>
-<img src="githubcompresseddemo.gif" alt="Demo gif" width="1000" height="350">
+<img src="githubcompresseddemo.gif" alt="Demo gif" width="1000" height="700">
 Our vehicle recognizes six types of traffic signs (left, right, forward, stop, caution, and u-turn) and executes corresponding maneuvers. The system treats signs as either destination indicators (left, right, u-turn) or behavior modifiers (caution, forward, stop) that affect the vehicle's approach behavior.</p>
 <p><strong>Real-time Depth Sensing</strong><br>
 Using an Intel RealSense camera, the vehicle accurately perceives distances to signs and obstacles, enabling precise positioning and collision avoidance during navigation.</p>
