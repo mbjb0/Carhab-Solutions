@@ -7,7 +7,6 @@
 <br>
 <p><strong>Features</strong></p>
 <p><strong>Sign-Based Navigation System</strong><br>
-![githubcompresseddemo](https://github.com/user-attachments/assets/674c1d5f-dd5b-4f1a-9c52-83c89194309e)
 
 Our vehicle recognizes six types of traffic signs (left, right, forward, stop, caution, and u-turn) and executes corresponding maneuvers. The system treats signs as either destination indicators (left, right, u-turn) or behavior modifiers (caution, forward, stop) that affect the vehicle's approach behavior.</p>
 <p><strong>Real-time Depth Sensing</strong><br>
