@@ -54,14 +54,14 @@ car_angle = 0  # Angle in degrees
 car_speed = 0  # Current speed of the car
 MAX_SPEED = 5.0
 ACCELERATION = 4
-BRAKE_POWER = .2
+BRAKE_POWER = .1
 TURN_FRICTION = 0
 
 
 # Sign properties
 SIGN_WIDTH = 40
 SIGN_HEIGHT = 40
-signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 -400, 'type': 'RIGHT'}]  # Initial sign
+signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 -400, 'type': 'RIGHT', 'ID': 1}]  # Initial sign
 current_sign_type = 'RIGHT'  # Default selected sign type
 
 
@@ -183,7 +183,7 @@ def check_sign_visibility(car_front_pos, car_angle, sign_center):
     return abs(relative_angle) <= MAX_VIEW_ANGLE
 
 
-def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, frame_width, sign_type):
+def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, frame_width, sign_type, sign_ID):
     """Modified to include sign type ID."""
     # Previous visibility check code remains the same...
     sign_center = (
@@ -232,7 +232,7 @@ def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, fram
         min_dist,       # y1 (true distance to sign)
         frame_max_x,    # x2 in frame coordinates
         min_dist,       # y2 (same as y1)
-        1,             # id (always 1 for now)
+        sign_ID,             # id
         SIGN_TYPES[sign_type]['id']  # class_id based on sign type
     ]]
 
@@ -340,6 +340,9 @@ try:
     obstacle_counter = 0
     instruction = ""
     amount = 0
+    IDcounter = 1
+    wheel_angle = 0
+    car_angle =0
 
 
 
@@ -366,11 +369,12 @@ try:
                                 break
                     else:
                         # Add new sign at click position with current type
+                        IDcounter += 1
                         signs.append({
                             'x': mouse_pos[0],
                             'y': mouse_pos[1],
-                            'type': current_sign_type
-                        })
+                            'type': current_sign_type,
+                            'ID': IDcounter})
 
         visualizer.update_state(current_state, state_time)
         visualizer.update_mod_state(current_mod_state, mod_state_time)
@@ -387,7 +391,7 @@ try:
         sign_centers = []
         for sign in signs:
             center = draw_sign(screen, sign)
-            sign_centers.append((center, sign['type']))
+            sign_centers.append((center, sign['type'],sign['ID']))
         
         # Draw car and get its center position
         car_center = draw_car(screen, car_x, car_y, car_angle)
@@ -399,7 +403,7 @@ try:
         
         trackers = []
 
-        for sign_center, sign_type in sign_centers:
+        for sign_center, sign_type, sign_ID in sign_centers:
             car_front_pos = calculate_car_front_position(car_center, car_angle, CAR_HEIGHT)
             sign_corners = calculate_sign_corners(sign_center, SIGN_WIDTH, SIGN_HEIGHT)
             
@@ -408,7 +412,7 @@ try:
                 continue
                 
             vectors = calculate_vectors_to_sign(car_front_pos, car_angle, sign_corners)
-            tracker = create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, WINDOW_WIDTH, sign_type)
+            tracker = create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, WINDOW_WIDTH, sign_type, sign_ID)
             
             if tracker:
                 dx = sign_center[0] - car_center[0]
@@ -420,6 +424,7 @@ try:
                     closest_distance = distance
                     closest_tracker = tracker
                     closest_sign_data = (car_front_pos, sign_corners, vectors)
+            
         
 
         # Draw debug visualization for closest visible sign
@@ -480,7 +485,6 @@ try:
 
         if instruction == "reverse":
             car_speed = -1*min(car_speed*(amount/100) + ACCELERATION, MAX_SPEED)
-            #DONT EVEN ASK BRO
             if(wheel_angle > 0):
                 car_angle -= 1.5*(1-math.exp(abs(wheel_angle) / 95))
             elif(wheel_angle < 0):
@@ -491,21 +495,35 @@ try:
             
         elif instruction == "neutral":
             wheel_angle = 0
+            car_x += math.sin(math.radians(car_angle)) * car_speed 
+            car_y -= math.cos(math.radians(car_angle)) * car_speed
 
         elif instruction == "brake":
             car_speed = max(0, car_speed - BRAKE_POWER)
-            car_x += math.sin(math.radians(car_angle)) * car_speed
+            
+            if(wheel_angle > 0):
+                wheel_angle = max(0, wheel_angle - 1)
+                car_angle += 1.3*(1-math.exp(abs(wheel_angle) / 130))
+            elif(wheel_angle < 0):
+                wheel_angle = -1*max(0, abs(wheel_angle) - 1)
+                car_angle -= 1.3*(1-math.exp(abs(wheel_angle) / 130))
+            
+            car_x += math.sin(math.radians(car_angle)) * car_speed 
             car_y -= math.cos(math.radians(car_angle)) * car_speed
             
             
         elif instruction == "left":
+            
             wheel_angle = min(amount, 70)
             
             
             
+            
         elif instruction == "right":
-            wheel_angle = -1*min(amount, 70)
 
+            wheel_angle = -1*min(amount, 70)
+            
+            
         print(trackers)
             
         
