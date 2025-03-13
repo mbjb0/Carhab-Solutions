@@ -167,7 +167,6 @@ class Instruction:
             if(current_state == "obstacle_detected"):
                 if(state_time <= obstacle_detected_brake_time):
                     instruction = "brake"
-                    #print("hhhhh")
                     amount = 0
                     return instruction, amount, current_state, state_time, current_mod_state, mod_state_time, executed_id, obstacle_counter
                 elif(state_time <= obstacle_detected_center_time):
