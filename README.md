@@ -15,8 +15,7 @@ Using an Intel RealSense camera, the vehicle accurately perceives distances to s
 The driving algorithm is structured as a finite state machine that processes the output of the sign classification code and depth information from the realsense camera to return instantaneous timed instructions without the use of threading.
 Bounding box outputs from the sign classification model are converted to SORT trackers with unique IDs, as well as having their distance to the vehicle appended. This information is used in the state machine to determine entrance of one of the following states: centering, sign execution, sign polling, obstacle detection.
 <p><strong>Sign Modified Approach Behavior</strong><br>
-3 of the six total instructional signs modify the approach (centering) stage of the driving algorithm. These modifications take place while the vehicle is being instructed by one of the three destination signs and do not influence the direction of travel of the vehicle.
-<p><strong>Sign System</strong></p>
+3 of the six total instructional signs modify the approach (centering) stage of the driving algorithm towards the main destination signs. These modifications take place while the vehicle is being instructed by one of the three destination signs and do not influence the direction of travel of the vehicle.
 <p><strong>Destination Signs</strong><br>
 - <strong>Left Arrow:</strong> Vehicle turns left at sign<br>
 - <strong>Right Arrow:</strong> Vehicle turns right at sign<br>
@@ -31,7 +30,7 @@ The vehicle dynamically adjusts throttle based on the distance to target signs, 
 <br>
 <p><strong>Vehicle Logic Development Simulator</strong></p>
 <img src="vehicle sim.JPG" alt="Vehicle Simulator" width="800" height="350">
-<p> A basic vehicle simulator programmed in Pygame is included in the project to help adjust the logic and state transitions of the driving algorithm in a consistent and repeatable environment. The simulator interfaces with the same driving logic module as the physical vehicle instruction code, so changes made in the simulator will be reflected in real life behavior.</p>
+<p> A basic vehicle simulator programmed in Pygame is included in the project to help adjust the logic and state transitions of the driving algorithm in a consistent and repeatable environment. The simulator interfaces with the same driving logic module as the physical vehicle instruction code, so changes made in the simulator will be reflected in real life behavior. The user of the simulator is able to freely place signs of all six types and observe the real time reaction of a simulated vehicle.</p>
 <p><strong>Modeled in the Simulator</strong><br>
 - <strong>Sign Detection:</strong> Synthetic first person tracker coordinates, ID, and class type are generated based on the position and type of signs in the simulator.<br>
 - <strong>Physical Vehicle Modeling:</strong> The friction, acceleration, turning radius and influence of vehicle instruction is modeled to roughly match the behavior of the Traxxas RC vehicle used.<br>
