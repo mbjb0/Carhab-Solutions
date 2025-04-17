@@ -4,14 +4,17 @@
 <p>The vehicle approaches the closest identified sign and executes its associated instruction, then locates the next sign in sequence. This modular solution provides greater flexibility for small-scale autonomous vehicles across various settings, from indoor delivery systems to inventory management.</p>
 <br>
 <p>Team Members: Mohammad Alburaidi (malburaidi@ucdavis.edu), Logan Field (lrfield@ucdavis.edu), Nasih Al-Barwani (nmalbarwani@ucdavis.edu), Pranav Nallapaneni</p>
+<p>For inquiries about driving algorithm code, model training, or recreating project, contact Logan Field (lrfield@ucdavis.edu)</p>
 <br>
 <p><strong>Features</strong></p>
 <p><strong>Sign-Based Navigation System</strong><br>
 <img src="githubcompresseddemo.gif" alt="Demo gif" width="1000" height="700">
 <p><strong>Real-time Depth Sensing</strong><br>
 Using an Intel RealSense camera, the vehicle accurately perceives distances to signs and obstacles, enabling precise positioning and collision avoidance during navigation.</p>
-<p><strong>Finite State Machine Implementation</strong><br>
-The driving algorithm is structured as a finite state machine that processes tracking input, state timing, and depth information to determine the optimal navigation path, allowing for complex behaviors like waiting at stop signs or slowing for caution signs.</p>
+<p><strong>Driving Algorithm</strong><br>
+The driving algorithm is structured as a finite state machine that processes the output of the sign classification code and depth information from the realsense camera to return instantaneous timed instructions without the use of threading.
+Bounding box outputs from the sign classification model are converted to SORT trackers with unique IDs, as well as having their distance to the vehicle appended. This information is used in the state machine to determine entrance of one of the following states: centering, sign execution, sign polling, obstacle detection.
+</p>
 <p><strong>Adaptive Speed Control</strong><br>
 The vehicle dynamically adjusts throttle based on the distance to target signs, slowing as it approaches them to ensure accurate execution of turning instructions and reduce collision risk.</p>
 <br>
