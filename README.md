@@ -1,7 +1,7 @@
 <img src="logo.png" alt="Carhab Solutions Logo" width="800" height="350">
 <p><strong>Carhab Solutions: Sign-Based Autonomous Navigation</strong></p>
 <p>Carhab Solutions presents an innovative approach to autonomous vehicle navigation that relies exclusively on traffic sign recognition and depth sensing. The goal of this project is to demonstrate a consistency in both detection and classification of signage through directing an autonomous vehicle through a course without providing the input of lane positioning.</p>
-<p>The vehicle approaches the closest identified sign and executes its associated instruction, then locates the next sign in sequence. This modular solution provides greater flexibility for small-scale autonomous vehicles across various settings, from indoor delivery systems to inventory management.</p>
+<p>The user of this platform will set up a "course" consisting of sequential directional signage, then the vehicle follow the signage to navigate the course. This modular solution provides greater flexibility for small-scale autonomous vehicles across various settings, from indoor delivery systems to inventory management.</p>
 <br>
 <p>Team Members: Mohammad Alburaidi (malburaidi@ucdavis.edu), Logan Field (lrfield@ucdavis.edu), Nasih Al-Barwani (nmalbarwani@ucdavis.edu), Pranav Nallapaneni</p>
 <p>For inquiries about driving algorithm code, model training, or recreating project, contact Logan Field (lrfield@ucdavis.edu)</p>
@@ -11,10 +11,21 @@
 <img src="githubcompresseddemo.gif" alt="Demo gif" width="1000" height="700">
 <p><strong>Real-time Depth Sensing</strong><br>
 Using an Intel RealSense camera, the vehicle accurately perceives distances to signs and obstacles, enabling precise positioning and collision avoidance during navigation.</p>
-<p><strong>Driving Algorithm</strong><br>
+<p><strong>Basic Driving Algorithm</strong><br>
 The driving algorithm is structured as a finite state machine that processes the output of the sign classification code and depth information from the realsense camera to return instantaneous timed instructions without the use of threading.
 Bounding box outputs from the sign classification model are converted to SORT trackers with unique IDs, as well as having their distance to the vehicle appended. This information is used in the state machine to determine entrance of one of the following states: centering, sign execution, sign polling, obstacle detection.
-</p>
+<p><strong>Sign Modified Approach Behavior</strong><br>
+3 of the six total instructional signs modify the approach (centering) stage of the driving algorithm. In the case of a stop sign, the vehicle will stop for 2 seconds before continuing. In the case of a caution sign, the vehicle's approach speed is reduced, and in the case of a forward sign, the vehicle's speed is increased. These modifications take place while the vehicle is being instructed by one of the three destination signs (Right, Left, U-turn) and do not influence the direction of travel of the vehicle.
+<p><strong>Sign System</strong></p>
+<p><strong>Destination Signs</strong><br>
+- <strong>Left Arrow:</strong> Vehicle turns left at sign<br>
+- <strong>Right Arrow:</strong> Vehicle turns right at sign<br>
+- <strong>U-Turn:</strong> Vehicle performs a 180° turn</p>
+<p><strong>Modifier Signs</strong><br>
+- <strong>Forward:</strong> Increases approach speed<br>
+- <strong>Caution:</strong> Decreases approach speed<br>
+- <strong>Stop:</strong> Pauses briefly before continuing</p>
+<br>
 <p><strong>Adaptive Speed Control</strong><br>
 The vehicle dynamically adjusts throttle based on the distance to target signs, slowing as it approaches them to ensure accurate execution of turning instructions and reduce collision risk.</p>
 <br>
@@ -55,17 +66,6 @@ pip install ultralytics
 <pre>
 pip install pyrealsense2
 </pre>
-<br>
-<p><strong>Sign System</strong></p>
-<p>Our solution uses a dual-category sign system:</p>
-<p><strong>Destination Signs</strong><br>
-- <strong>Left Arrow:</strong> Vehicle turns left at sign<br>
-- <strong>Right Arrow:</strong> Vehicle turns right at sign<br>
-- <strong>U-Turn:</strong> Vehicle performs a 180° turn</p>
-<p><strong>Modifier Signs</strong><br>
-- <strong>Forward:</strong> Increases approach speed<br>
-- <strong>Caution:</strong> Decreases approach speed<br>
-- <strong>Stop:</strong> Pauses briefly before continuing</p>
 <br>
 <p><strong>Project Development</strong></p>
 <p><strong>Model Training</strong><br>
