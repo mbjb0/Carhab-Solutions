@@ -29,8 +29,17 @@ Bounding box outputs from the sign classification model are converted to SORT tr
 <p><strong>Adaptive Speed Control</strong><br>
 The vehicle dynamically adjusts throttle based on the distance to target signs, slowing as it approaches them to ensure accurate execution of turning instructions and reduce collision risk.</p>
 <br>
-
-<img src="vehicle sim.jpg" alt="Vehicle Simulator" width="800" height="350">
+<p><strong>Vehicle Logic Development Simulator</strong></p>
+<img src="vehicle sim.JPG" alt="Vehicle Simulator" width="800" height="350">
+<p> A basic vehicle simulator programmed in Pygame is included in the project to help adjust the logic and state transitions of the driving algorithm in a consistent and repeatable environment. The simulator interfaces with the same driving logic module as the physical vehicle instruction code, so changes made in the simulator will be reflected in real life behavior.</p>
+<p><strong>Modeled in the Simulator</strong><br>
+- <strong>Sign Detection:</strong> Synthetic first person tracker coordinates, ID, and class type are generated based on the position and type of signs in the simulator.<br>
+- <strong>Physical Vehicle Modeling:</strong> The friction, acceleration, turning radius and influence of vehicle instruction is modeled to roughly match the behavior of the Traxxas RC vehicle used.<br>
+- <strong>Car FOV:</strong> The simulated vehicle has a limited cone of vision modeled after the Realsense Camera. Synthetic Trackers generated outside of this cone are not fed into the driving logic module.</p>
+<p><strong>Not Modeled in the simulator</strong><br>
+- <strong>Timing:</strong> The speed of the simulation is affected by the performance of the computer running it, as well as changes made to the simulation code. Currently the driving logic module has little reliance on timing for navigation, but if the user wishes to add more time-based logic, it is not recommended to use the simulator to troubleshoot this.<br>
+- <strong>Enviromental Occlusion: </strong> There is currently no simulated way to occlude signs from the vision of the vehicle other than being outside of the field of view of the vehicle.</p>
+<br>
 <p><strong>Technology Stack</strong></p>
 <p>
 - <strong>Vehicle Base:</strong> Modified Traxxas RC vehicle with improved bumper and bypass suspension<br>
