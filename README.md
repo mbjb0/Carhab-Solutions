@@ -29,6 +29,8 @@ Bounding box outputs from the sign classification model are converted to SORT tr
 <p><strong>Adaptive Speed Control</strong><br>
 The vehicle dynamically adjusts throttle based on the distance to target signs, slowing as it approaches them to ensure accurate execution of turning instructions and reduce collision risk.</p>
 <br>
+
+<img src="vehicle sim.jpg" alt="Vehicle Simulator" width="800" height="350">
 <p><strong>Technology Stack</strong></p>
 <p>
 - <strong>Vehicle Base:</strong> Modified Traxxas RC vehicle with improved bumper and bypass suspension<br>
