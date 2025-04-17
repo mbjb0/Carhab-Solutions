@@ -1,6 +1,6 @@
 <img src="logo.png" alt="Carhab Solutions Logo" width="800" height="350">
 <p><strong>Carhab Solutions: Sign-Based Autonomous Navigation</strong></p>
-<p>Carhab Solutions presents an innovative approach to autonomous vehicle navigation that relies exclusively on traffic sign recognition and depth sensing. Unlike traditional autonomous vehicles that depend on lane following algorithms, our system implements a point-to-point navigation strategy that's more adaptable to diverse environments.</p>
+<p>Carhab Solutions presents an innovative approach to autonomous vehicle navigation that relies exclusively on traffic sign recognition and depth sensing. The goal of this project is to demonstrate a consistency in both detection and classification of signage through directing an autonomous vehicle through a course without providing the input of lane positioning.</p>
 <p>The vehicle approaches the closest identified sign and executes its associated instruction, then locates the next sign in sequence. This modular solution provides greater flexibility for small-scale autonomous vehicles across various settings, from indoor delivery systems to inventory management.</p>
 <br>
 <p>Team Members: Mohammad Alburaidi (malburaidi@ucdavis.edu), Logan Field (lrfield@ucdavis.edu), Nasih Al-Barwani (nmalbarwani@ucdavis.edu), Pranav Nallapaneni</p>
