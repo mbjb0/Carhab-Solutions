@@ -11,7 +11,7 @@
 <img src="githubcompresseddemo.gif" alt="Demo gif" width="1000" height="700">
 <p><strong>Real-time Depth Sensing</strong><br>
 Using an Intel RealSense camera, the vehicle accurately perceives distances to signs and obstacles, enabling precise positioning and collision avoidance during navigation.</p>
-<p><strong>Basic Driving Algorithm</strong><br>
+<p><strong>Driving Algorithm</strong><br>
 The driving algorithm is structured as a finite state machine that processes the output of the sign classification code and depth information from the realsense camera to return instantaneous timed instructions without the use of threading.
 Bounding box outputs from the sign classification model are converted to SORT trackers with unique IDs, as well as having their distance to the vehicle appended. This information is used in the state machine to determine entrance of one of the following states: centering, sign execution, sign polling, obstacle detection.
 <p><strong>Sign Modified Approach Behavior</strong><br>
