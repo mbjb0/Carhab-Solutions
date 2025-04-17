@@ -15,7 +15,7 @@ Using an Intel RealSense camera, the vehicle accurately perceives distances to s
 The driving algorithm is structured as a finite state machine that processes the output of the sign classification code and depth information from the realsense camera to return instantaneous timed instructions without the use of threading.
 Bounding box outputs from the sign classification model are converted to SORT trackers with unique IDs, as well as having their distance to the vehicle appended. This information is used in the state machine to determine entrance of one of the following states: centering, sign execution, sign polling, obstacle detection.
 <p><strong>Sign Modified Approach Behavior</strong><br>
-3 of the six total instructional signs modify the approach (centering) stage of the driving algorithm. In the case of a stop sign, the vehicle will stop for 2 seconds before continuing. In the case of a caution sign, the vehicle's approach speed is reduced, and in the case of a forward sign, the vehicle's speed is increased. These modifications take place while the vehicle is being instructed by one of the three destination signs (Right, Left, U-turn) and do not influence the direction of travel of the vehicle.
+3 of the six total instructional signs modify the approach (centering) stage of the driving algorithm. These modifications take place while the vehicle is being instructed by one of the three destination signs and do not influence the direction of travel of the vehicle.
 <p><strong>Sign System</strong></p>
 <p><strong>Destination Signs</strong><br>
 - <strong>Left Arrow:</strong> Vehicle turns left at sign<br>
