@@ -6,18 +6,27 @@ import time
 import board
 import busio
 from adafruit_pca9685 import PCA9685
+import threading
 
 # Constants
 MAX_THROTTLE = 80
 MIN_THROTTLE = 10
 SERVO_CHANNEL = 0
 THROTTLE_CHANNEL = 1
+CAMERA_SERVO_CHANNEL = 3  # Assuming camera servo is on channel 2, adjust if needed
 
 # Servo configuration
 MAX_TURN_ANGLE = 60  # Maximum turn angle
 SERVO_CENTER = 307   # Center position (1.5ms pulse)
 SERVO_MIN = 205      # Full left position (1ms pulse)
 SERVO_MAX = 409      # Full right position (2ms pulse)
+
+# Camera servo configuration
+CAMERA_MAX_ANGLE = 180  # Maximum camera rotation angle
+CAMERA_CENTER = 307    # Center position (1.5ms pulse)
+CAMERA_MIN = 205       # Minimum position (1ms pulse)
+CAMERA_MAX = 409       # Maximum position (2ms pulse)
+CAMERA_STEP_DELAY = 0  # Delay between steps for medium speed movement
 
 # ESC configuration
 ESC_NEUTRAL = 307    # Neutral position
@@ -31,6 +40,14 @@ class Controls:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.pca = PCA9685(self.i2c, address=0x40)
             self.pca.frequency = 50
+
+            self.camera_moving = False
+            self.camera_target_angle = None
+            self.camera_last_move_time = 0
+            self.camera_step_size = 1  # Degrees per step
+            
+            # Store the current camera angle for smooth pivoting
+            self.current_camera_angle = 90  # Assume starting at center
             
             print("Press 'w' to start ESC initialization, 'n' to skip... Press ESC down. it should go green-red-off release at off and press w right after releasing \n" 
                   "Unplug/remove the ground wire before running the program when you are going to intialize")
@@ -55,6 +72,7 @@ class Controls:
                 time.sleep(5)
             
             self.turn_center()
+            self.camera_center()  # Center the camera as well
             print("Done initializing")
         except Exception as e:
             print(f"Unexpected error: {e}")
@@ -96,6 +114,26 @@ class Controls:
         
         # Final boundary check
         pulse = max(SERVO_MIN, min(SERVO_MAX, pulse))
+        
+        return pulse
+    
+    def _camera_angle_to_pwm(self, angle):
+        """Convert camera angle (0 to CAMERA_MAX_ANGLE) to PWM value"""
+        # First, constrain the angle
+        angle = max(0, min(CAMERA_MAX_ANGLE, angle))
+        
+        # Map the angle directly to PWM range
+        total_pwm_range = CAMERA_MAX - CAMERA_MIN
+        
+        # Calculate PWM value linearly (0 -> CAMERA_MIN, CAMERA_MAX_ANGLE -> CAMERA_MAX)
+        pwm_per_degree = total_pwm_range / CAMERA_MAX_ANGLE
+        offset = angle * pwm_per_degree
+        
+        # Map to PWM value
+        pulse = CAMERA_MIN + int(offset)
+        
+        # Final boundary check
+        pulse = max(CAMERA_MIN, min(CAMERA_MAX, pulse))
         
         return pulse
 
@@ -166,10 +204,101 @@ class Controls:
         print(f"Turn Left - Input: {angle}°, Scaled: {scaled_angle}°, PWM: {pwm}")
         self.turn(scaled_angle)
 
+    def cameraPivot(self, angle):
+        """
+        Rotate the camera servo to the specified angle (non-blocking)
+        
+        Args:
+            angle: The target angle (0-180) for the camera
+        """
+        # Constrain angle to valid range
+        target_angle = int(round(max(0, min(CAMERA_MAX_ANGLE, angle))))
+        
+        # Initialize current_camera_angle if not set
+        if not hasattr(self, 'current_camera_angle'):
+            # Direct set without movement animation
+            self.current_camera_angle = 90
+            pwm = self._camera_angle_to_pwm(self.current_camera_angle)
+            self._set_pwm(CAMERA_SERVO_CHANNEL, 0, pwm)
+        
+        # Skip if we're already at the target or already moving to this target
+        if self.current_camera_angle == target_angle:
+            return
+        
+        # If already moving, interrupt current movement
+        if self.camera_moving and self.camera_target_angle != target_angle:
+            print(f"Changing camera target from {self.camera_target_angle}° to {target_angle}°")
+        else:
+            print(f"Moving camera from {self.current_camera_angle}° to {target_angle}°")
+        
+        # Set up movement parameters
+        self.camera_target_angle = target_angle
+        self.camera_moving = True
+        self.camera_last_move_time = time.time()
+        
+        # Determine step direction and increase step size for faster movement
+        step_size = 10  # Increased from 1 to 5 degrees per step
+        if self.current_camera_angle < target_angle:
+            self.camera_step_size = step_size  # Moving clockwise
+        else:
+            self.camera_step_size = -step_size  # Moving counter-clockwise
+
+    def update_camera(self):
+        if not self.camera_moving or self.camera_target_angle is None:
+            return
+
+        current_time = time.time()
+        if current_time - self.camera_last_move_time < CAMERA_STEP_DELAY:
+            return
+
+        # Check if close enough to target (even with floating-point issues)
+        if abs(self.current_camera_angle - self.camera_target_angle) < 3:
+            self._set_pwm(CAMERA_SERVO_CHANNEL, 0, self._camera_angle_to_pwm(self.camera_target_angle))
+            self.current_camera_angle = self.camera_target_angle
+            self.camera_moving = False
+            print(f"Camera reached {self.camera_target_angle}°")
+            return
+
+        # Rest of the movement logic...
+        
+        # Calculate the next angle
+        next_angle = self.current_camera_angle + self.camera_step_size
+        
+        # Check if we've reached or passed the target
+        target_reached = False
+        if self.camera_step_size > 0:  # Moving clockwise
+            target_reached = next_angle >= self.camera_target_angle
+        else:  # Moving counter-clockwise
+            target_reached = next_angle <= self.camera_target_angle
+        
+        if target_reached:
+            # Set to exact target position
+            pwm = self._camera_angle_to_pwm(self.camera_target_angle)
+            self._set_pwm(CAMERA_SERVO_CHANNEL, 0, pwm)
+            self.current_camera_angle = self.camera_target_angle
+            
+            # Clear movement state
+            self.camera_moving = False
+            self.camera_last_move_time = 0
+            print(f"Camera reached {self.camera_target_angle}°")
+        else:
+            # Move one step
+            pwm = self._camera_angle_to_pwm(next_angle)
+            self._set_pwm(CAMERA_SERVO_CHANNEL, 0, pwm)
+            self.current_camera_angle = next_angle
+            self.camera_last_move_time = current_time
+
+    # Simplified, robust main loop implementation
+    def camera_center(self):
+        """Center the camera servo at 90 degrees"""
+        self.cameraPivot(90)
+
     def cleanup(self):
         """Clean up and reset servos"""
         self.brake()
         self.turn_center()
+        # Center camera too
+        self.camera_center()
         time.sleep(0.1)
         
         for channel in range(16):
@@ -177,11 +306,3 @@ class Controls:
         
         self.pca.deinit()
 
-if __name__ == "__main__":
-    try:
-        controls = Controls()
-    except KeyboardInterrupt:
-        print("\nProgram stopped by user")
-    finally:
-        if 'controls' in locals():
-            controls.cleanup()

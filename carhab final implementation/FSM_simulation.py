@@ -61,7 +61,7 @@ TURN_FRICTION = 0
 # Sign properties
 SIGN_WIDTH = 40
 SIGN_HEIGHT = 40
-signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 -400, 'type': 'RIGHT', 'ID': 1}]  # Initial sign
+signs = [{'x': WINDOW_WIDTH // 2 - 200, 'y': WINDOW_HEIGHT // 2 -400, 'type': 'LEFT', 'ID': 1}]  # Initial sign
 current_sign_type = 'RIGHT'  # Default selected sign type
 
 
@@ -116,32 +116,31 @@ def calculate_sign_corners(sign_center, sign_width, sign_height):
     ]
     return corners
 
-def transform_to_car_perspective(car_front_pos, car_angle, point):
-    """Transform a world point to car's perspective coordinates."""
-    # Vector from car front to point
-    dx = point[0] - car_front_pos[0]
-    dy = point[1] - car_front_pos[1]
+def transform_to_car_perspective(camera_pos, camera_angle, point):
+    """Transform a world point to camera's perspective coordinates."""
+    # Vector from camera to point
+    dx = point[0] - camera_pos[0]
+    dy = point[1] - camera_pos[1]
     
-    # Rotate vector to car's local coordinate system
-    angle_rad = math.radians(-car_angle)
+    # Rotate vector to camera's local coordinate system
+    angle_rad = math.radians(-camera_angle)
     local_x = dx * math.cos(angle_rad) - dy * math.sin(angle_rad)
     local_y = dx * math.sin(angle_rad) + dy * math.cos(angle_rad)
     
-    return local_x, -local_y  # Negative y because forward is positive in car's view
+    return local_x, -local_y  # Negative y because forward is positive in camera's view
 
-def calculate_vectors_to_sign(car_front_pos, car_angle, sign_corners):
-    """Calculate vectors from car front to sign corners in car's perspective view."""
+def calculate_vectors_to_sign(camera_pos, camera_angle, sign_corners):
+    """Calculate vectors from camera to sign corners in camera's perspective view."""
     vectors = []
     
     for corner in sign_corners:
-        # Get corner position in car's local coordinate system
-        local_x, local_y = transform_to_car_perspective(car_front_pos, car_angle, corner)
+        # Get corner position in camera's local coordinate system
+        local_x, local_y = transform_to_car_perspective(camera_pos, camera_angle, corner)
         
-        # Calculate distance in car's forward direction
-        distance = local_y  # This is the forward distance from car's perspective
+        # Calculate distance in camera's forward direction
+        distance = local_y  # This is the forward distance from camera's perspective
         
-        # Calculate lateral offset angle (from car's centerline)
-        # Use arctangent to get the angle from the car's forward direction
+        # Calculate lateral offset angle (from camera's centerline)
         lateral_angle = math.degrees(math.atan2(local_x, local_y))
         
         vectors.append({
@@ -154,17 +153,17 @@ def calculate_vectors_to_sign(car_front_pos, car_angle, sign_corners):
     
     return vectors
 
-def check_sign_visibility(car_front_pos, car_angle, sign_center):
-    """Check if a sign is within the car's field of view."""
-    # Calculate vector from car front to sign center
-    dx = sign_center[0] - car_front_pos[0]
-    dy = sign_center[1] - car_front_pos[1]
+def check_sign_visibility(camera_pos, camera_angle, sign_center):
+    """Check if a sign is within the camera's field of view."""
+    # Calculate vector from camera to sign center
+    dx = sign_center[0] - camera_pos[0]
+    dy = sign_center[1] - camera_pos[1]
     
     # Calculate absolute angle to sign in world coordinates
     absolute_angle = math.degrees(math.atan2(dx, -dy))  # -dy because pygame y increases downward
     
-    # Calculate relative angle by subtracting car's angle
-    relative_angle = absolute_angle - car_angle
+    # Calculate relative angle by subtracting camera's angle
+    relative_angle = absolute_angle - camera_angle
     
     # Normalize to -180 to 180 range
     while relative_angle > 180:
@@ -175,27 +174,28 @@ def check_sign_visibility(car_front_pos, car_angle, sign_center):
     # Define maximum view angle (40 degrees to either side)
     MAX_VIEW_ANGLE = 40
     
-    # Check if sign is behind the car
-    local_x, local_y = transform_to_car_perspective(car_front_pos, car_angle, sign_center)
-    if local_y <= 0:  # Sign is behind or at the same level as car
+    # Check if sign is behind the camera
+    local_x, local_y = transform_to_car_perspective(camera_pos, camera_angle, sign_center)
+    if local_y <= 0:  # Sign is behind or at the same level as camera
         return False
     
     return abs(relative_angle) <= MAX_VIEW_ANGLE
 
 
-def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, frame_width, sign_type, sign_ID):
-    """Modified to include sign type ID."""
-    # Previous visibility check code remains the same...
+def create_perspective_tracker_data(camera_pos, camera_angle, sign_corners, frame_width, sign_type, sign_ID):
+    """Modified to include sign type ID and use camera perspective."""
     sign_center = (
         sum(corner[0] for corner in sign_corners) / 4,
         sum(corner[1] for corner in sign_corners) / 4
     )
-    if not check_sign_visibility(car_front_pos, car_angle, sign_center):
+    
+    # Check visibility using camera orientation
+    if not check_sign_visibility(camera_pos, camera_angle, sign_center):
         return None
         
-    # Rest of the perspective calculation code remains the same...
+    # Transform corners to camera's perspective
     transformed_corners = [
-        transform_to_car_perspective(car_front_pos, car_angle, corner)
+        transform_to_car_perspective(camera_pos, camera_angle, corner)
         for corner in sign_corners
     ]
     
@@ -204,8 +204,8 @@ def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, fram
     
     min_dist = float('inf')
     for corner in sign_corners:
-        dx = corner[0] - car_front_pos[0]
-        dy = corner[1] - car_front_pos[1]
+        dx = corner[0] - camera_pos[0]
+        dy = corner[1] - camera_pos[1]
         dist = math.sqrt(dx*dx + dy*dy)
         min_dist = min(min_dist, dist)
     
@@ -232,18 +232,35 @@ def create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, fram
         min_dist,       # y1 (true distance to sign)
         frame_max_x,    # x2 in frame coordinates
         min_dist,       # y2 (same as y1)
-        sign_ID,             # id
+        sign_ID,        # id
         SIGN_TYPES[sign_type]['id']  # class_id based on sign type
     ]]
 
-def draw_car(surface, x, y, angle):
+def draw_car(surface, x, y, angle, pivot_amount):
+    # Draw car as before
     car_surface = pygame.Surface((CAR_WIDTH, CAR_HEIGHT), pygame.SRCALPHA)
     pygame.draw.rect(car_surface, BLUE, (0, 0, CAR_WIDTH, CAR_HEIGHT))
     pygame.draw.rect(car_surface, BLACK, (CAR_WIDTH//4, 0, CAR_WIDTH//2, 5))
     rotated_surface = pygame.transform.rotate(car_surface, -angle)
     rect = rotated_surface.get_rect(center=(x, y))
     surface.blit(rotated_surface, rect)
-    return rect.center
+    
+    # Calculate camera position at the front of the car
+    car_front_pos = calculate_car_front_position((x, y), angle, CAR_HEIGHT)
+    
+    # Draw the camera with its pivot
+    camera_width = CAR_WIDTH // 3
+    camera_height = CAR_HEIGHT // 4
+    camera_angle = angle - (pivot_amount - 90)  # 90 is aligned with car, 0 left, 180 right
+    camera_surface = pygame.Surface((camera_width, camera_height), pygame.SRCALPHA)
+    pygame.draw.rect(camera_surface, RED, (0, 0, camera_width, camera_height))
+    # Add a visual indicator for the camera's direction
+    pygame.draw.line(camera_surface, WHITE, (camera_width//2, 0), (camera_width//2, camera_height), 1)
+    rotated_camera = pygame.transform.rotate(camera_surface, -camera_angle)
+    camera_rect = rotated_camera.get_rect(center=car_front_pos)
+    surface.blit(rotated_camera, camera_rect)
+    
+    return rect.center, car_front_pos, camera_angle
 
 def draw_sign(surface, sign):
     """Draw a single sign with its type-specific appearance."""
@@ -267,12 +284,12 @@ def draw_all_signs(surface):
     """Draw all signs and return list of their center positions."""
     return [draw_sign(surface, sign) for sign in signs]
 
-def draw_debug_perspective(surface, car_front_pos, car_angle, sign_corners, tracker_data, vectors):
+def draw_debug_perspective(surface, camera_pos, camera_angle, sign_corners, tracker_data, vectors):
     """Draw debug visualization of the perspective calculations."""
-    # Draw vectors from car front to sign corners
+    # Draw vectors from camera to sign corners
     for vector in vectors:
         corner = vector['corner']
-        pygame.draw.line(surface, GREEN, car_front_pos, corner, 1)
+        pygame.draw.line(surface, GREEN, camera_pos, corner, 1)
         
         # Draw angle labels
         font = pygame.font.Font(None, 24)
@@ -286,35 +303,35 @@ def draw_debug_perspective(surface, car_front_pos, car_angle, sign_corners, trac
         corner = vector['corner']
         pygame.draw.circle(surface, RED, (int(corner[0]), int(corner[1])), 3)
     
-    # Draw car front point
-    pygame.draw.circle(surface, BLUE, (int(car_front_pos[0]), int(car_front_pos[1])), 3)
+    # Draw camera position
+    pygame.draw.circle(surface, BLUE, (int(camera_pos[0]), int(camera_pos[1])), 3)
     
-    # Draw tracker rectangle from car's perspective
+    # Draw tracker rectangle from camera's perspective
     if tracker_data and len(tracker_data) > 0:
         data = tracker_data[0]  # Get first tracker
         
         # Calculate forward and right vectors in world space
-        forward_x = math.sin(math.radians(car_angle))
-        forward_y = -math.cos(math.radians(car_angle))
-        right_x = math.cos(math.radians(car_angle))
-        right_y = math.sin(math.radians(car_angle))
+        forward_x = math.sin(math.radians(camera_angle))
+        forward_y = -math.cos(math.radians(camera_angle))
+        right_x = math.cos(math.radians(camera_angle))
+        right_y = math.sin(math.radians(camera_angle))
         
         scale = 1.0  # Scale factor for visualization
         
         # Calculate the endpoints of the line representing the sign's width
-        left_x = car_front_pos[0] + data[0] * right_x * scale
-        left_y = car_front_pos[1] + data[0] * right_y * scale
-        right_x = car_front_pos[0] + data[2] * right_x * scale
-        right_y = car_front_pos[1] + data[2] * right_y * scale
+        left_x = camera_pos[0] + data[0] * right_x * scale
+        left_y = camera_pos[1] + data[0] * right_y * scale
+        right_x = camera_pos[0] + data[2] * right_x * scale
+        right_y = camera_pos[1] + data[2] * right_y * scale
         
-        # Draw the line representing the sign from car's perspective
+        # Draw the line representing the sign from camera's perspective
         pygame.draw.line(surface, ORANGE, 
-                        (int(left_x), int(left_y)),
-                        (int(right_x), int(right_y)), 2)
+                       (int(left_x), int(left_y)),
+                       (int(right_x), int(right_y)), 2)
         
         # Draw lines showing the viewing angle to the sign
-        pygame.draw.line(surface, ORANGE, car_front_pos, (int(left_x), int(left_y)), 1)
-        pygame.draw.line(surface, ORANGE, car_front_pos, (int(right_x), int(right_y)), 1)
+        pygame.draw.line(surface, ORANGE, camera_pos, (int(left_x), int(left_y)), 1)
+        pygame.draw.line(surface, ORANGE, camera_pos, (int(right_x), int(right_y)), 1)
 
 def update_tracker_data(car_center, car_angle, sign_center, frame_width):
     """Update tracker data based on car's perspective of the sign."""
@@ -323,6 +340,77 @@ def update_tracker_data(car_center, car_angle, sign_center, frame_width):
     vectors = calculate_vectors_to_sign(car_front_pos, car_angle, sign_corners)
     tracker = create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, frame_width)
     return car_front_pos, sign_corners, vectors, tracker
+
+def calculate_compass_orientation(car_angle):
+    """
+    Calculate the compass orientation based on the car angle.
+    In this system:
+    - 0 degrees car_angle = North (top of screen)
+    - 90 degrees car_angle = East (right of screen)
+    - 180 degrees car_angle = South (bottom of screen)
+    - 270 degrees car_angle = West (left of screen)
+    
+    Returns compass bearing in the range 0-360 degrees.
+    """
+    # Convert car_angle to compass orientation
+    # In the code, car_angle 0 means facing North, and it increases clockwise
+    compass_degrees = car_angle % 360
+    
+    # Ensure the output is in the range 0-360
+    if compass_degrees < 0:
+        compass_degrees += 360
+        
+    return compass_degrees
+
+# Place these functions in your code right after the draw_debug_perspective function and before the update_tracker_data function
+
+def draw_compass(surface, x, y, radius, car_angle):
+    """
+    Draw a compass indicator on the screen.
+    
+    Args:
+        surface: pygame surface to draw on
+        x, y: center coordinates of the compass
+        radius: radius of the compass circle
+        car_angle: current angle of the car
+    """
+    # Draw compass circle
+    pygame.draw.circle(surface, WHITE, (x, y), radius)
+    pygame.draw.circle(surface, BLACK, (x, y), radius, 2)
+    
+    # Draw cardinal directions
+    font = pygame.font.Font(None, 24)
+    directions = [("N", 0), ("E", 90), ("S", 180), ("W", 270)]
+    
+    for label, angle in directions:
+        # Calculate position for the label
+        label_x = x + int(0.8 * radius * math.sin(math.radians(angle)))
+        label_y = y - int(0.8 * radius * math.cos(math.radians(angle)))
+        
+        # Render and position text
+        text = font.render(label, True, BLACK)
+        text_rect = text.get_rect(center=(label_x, label_y))
+        surface.blit(text, text_rect)
+    
+    # Draw needle (pointing in car's direction)
+    needle_length = radius * 0.7
+    needle_end_x = x + needle_length * math.sin(math.radians(car_angle))
+    needle_end_y = y - needle_length * math.cos(math.radians(car_angle))
+    
+    pygame.draw.line(surface, RED, (x, y), (needle_end_x, needle_end_y), 3)
+    
+    # Draw small circle in center
+    pygame.draw.circle(surface, RED, (x, y), 5)
+
+def get_cardinal_direction(compass_degrees):
+    """
+    Convert compass degrees to cardinal direction.
+    Returns the nearest cardinal direction (N, NE, E, SE, S, SW, W, NW).
+    """
+    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    index = round(compass_degrees / 45) % 8
+    return directions[index]
+
 
 try:
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -343,6 +431,9 @@ try:
     IDcounter = 1
     wheel_angle = 0
     car_angle =0
+    current_heading = 0
+    starting_heading = 0
+    pivot_amount = 90  # Default to aligned with car direction
 
 
 
@@ -394,7 +485,7 @@ try:
             sign_centers.append((center, sign['type'],sign['ID']))
         
         # Draw car and get its center position
-        car_center = draw_car(screen, car_x, car_y, car_angle)
+        car_center, camera_pos, camera_angle = draw_car(screen, car_x, car_y, car_angle, pivot_amount)
         
         # Process all signs and find the closest visible one
         closest_tracker = None
@@ -404,16 +495,15 @@ try:
         trackers = []
 
         for sign_center, sign_type, sign_ID in sign_centers:
-            car_front_pos = calculate_car_front_position(car_center, car_angle, CAR_HEIGHT)
             sign_corners = calculate_sign_corners(sign_center, SIGN_WIDTH, SIGN_HEIGHT)
             
-            # Check visibility first
-            if not check_sign_visibility(car_front_pos, car_angle, sign_center):
+            # Check visibility first using camera orientation
+            if not check_sign_visibility(camera_pos, camera_angle, sign_center):
                 continue
                 
-            vectors = calculate_vectors_to_sign(car_front_pos, car_angle, sign_corners)
-            tracker = create_perspective_tracker_data(car_front_pos, car_angle, sign_corners, WINDOW_WIDTH, sign_type, sign_ID)
-            
+            vectors = calculate_vectors_to_sign(camera_pos, camera_angle, sign_corners)
+            tracker = create_perspective_tracker_data(camera_pos, camera_angle, sign_corners, WINDOW_WIDTH, sign_type, sign_ID)
+                    
             if tracker:
                 dx = sign_center[0] - car_center[0]
                 dy = sign_center[1] - car_center[1]
@@ -423,7 +513,7 @@ try:
                 if (closest_tracker is None or distance < closest_distance) and not tracker[0][5] in modifier_sign_ids : #EXCLUDE MODIFIER SIGNS FROM CLOSEST DEPTH CALCULATION
                     closest_distance = distance
                     closest_tracker = tracker
-                    closest_sign_data = (car_front_pos, sign_corners, vectors)
+                    closest_sign_data = (camera_pos, sign_corners, vectors)
             
         
 
@@ -448,10 +538,11 @@ try:
             else:
                 new_state = current_state
                 new_state_time = state_time
-                tracker =[[0]]
+                tracker = [[0]]
             
-            instruction, amount, new_state, new_state_time, new_mod_state, new_mod_state_time, executed_id, obstacle_counter = instruction_system.interpret_sign(
+            instruction, amount, pivot_amount, new_state, new_state_time, new_mod_state, new_mod_state_time, executed_id, obstacle_counter = instruction_system.interpret_sign(
                     trackers,
+                    pivot_amount,
                     WINDOW_WIDTH,
                     WINDOW_HEIGHT,
                     depth,
@@ -524,13 +615,20 @@ try:
             wheel_angle = -1*min(amount, 70)
             
             
-        print(trackers)
+        print(starting_heading)
             
         
             
         
         # Draw debug information
         font = pygame.font.Font(None, 36)
+        # Insert this before the debug text setup to calculate the compass orientation
+        compass_degrees = calculate_compass_orientation(car_angle)
+        cardinal_direction = get_cardinal_direction(compass_degrees)
+
+        current_heading = compass_degrees
+
+        # Then modify your debug text list to include the compass information
         texts = [
             f"Destination State: {current_state}",
             f"Modifier State: {current_mod_state}",
@@ -538,10 +636,15 @@ try:
             f"Instruction: {instruction} ({amount})",
             f"Speed: {car_speed:.2f}",
             f"Wheel angle: {wheel_angle:.2f}",
+            f"Compass: {compass_degrees:.1f}° ({cardinal_direction})",  # Add this line
             f"Destination state Time: {state_time:.2f}",
             f"Modifier state Time: {mod_state_time:.2f}",
             "NOTE: signs placed while in Car FOV will cause logic issues"
         ]
+
+        # After displaying the text elements, add this to show the visual compass
+        # Add this right after your loop that displays the text elements
+        draw_compass(screen, WINDOW_WIDTH - 70, 70, 50, car_angle)
         
         # Add tracker coordinates if a tracker is detected
         if tracker and len(tracker[0]) == 6:

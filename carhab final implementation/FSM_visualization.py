@@ -41,7 +41,8 @@ class StateVisualizer:
             "u-turn", 
             "initial", 
             "obstacle_detected",
-            "centerpolling"  # Added the new normal state
+            "centerpolling",  # Added the new normal state
+            "searching"
         ]
         
         # Define states for the second group (mod_states)
@@ -106,6 +107,18 @@ class StateVisualizer:
         # Flag to control the thread
         self.is_running = False
         self.thread = None
+        
+        # Add properties for the state ball
+        self.ball_radius = 15
+        self.ball_color = (255, 255, 0)  # BGR: Cyan
+        self.ball_position = None
+        self.target_position = None
+        self.ball_transition_start = 0
+        self.ball_transition_duration = 0.5  # Duration of ball movement animation in seconds (increased for smoothness)
+        self.is_ball_moving = False
+        
+        # Lock for thread safety
+        self.ball_lock = threading.Lock()
     
     def _calculate_rectangle_positions(self):
         """Calculate the positions of the rectangles and control displays"""
@@ -175,6 +188,23 @@ class StateVisualizer:
                 # Set the new state as active
                 self.fade_states[state]['active'] = True
                 self.fade_states[state]['last_active'] = False
+                
+                # Thread-safe ball position update
+                with self.ball_lock:
+                    # Get the center of the new state's rectangle for target position
+                    x, y = self.positions[state]
+                    center_x = x + self.rect_width // 2
+                    center_y = y + self.rect_height // 2
+                    
+                    # Trigger ball movement animation if we have a current position
+                    if self.ball_position is not None:
+                        self.target_position = (center_x, center_y)
+                        self.ball_transition_start = time.time()
+                        self.is_ball_moving = True
+                    else:
+                        # First state, set ball directly to the position
+                        self.ball_position = (center_x, center_y)
+                        self.target_position = self.ball_position
             
             self.current_state = state
             self.state_time = state_time
@@ -193,17 +223,36 @@ class StateVisualizer:
             # Check if this is a state change
             if self.current_mod_state != mod_state:
                 # If there was a previous state, mark it for fading
-                if self.current_mod_state:
+                if self.current_mod_state and self.current_mod_state != "none":
                     self.fade_mod_states[self.current_mod_state]['active'] = False
                     self.fade_mod_states[self.current_mod_state]['fade_time'] = time.time()
                     self.fade_mod_states[self.current_mod_state]['last_active'] = True
                 
-                # Set the new state as active
-                self.fade_mod_states[mod_state]['active'] = True
-                self.fade_mod_states[mod_state]['last_active'] = False
+                # Reset all mod states to inactive first
+                for state in self.mod_states:
+                    if state != mod_state and state != "none":
+                        self.fade_mod_states[state]['active'] = False
+                        self.fade_mod_states[state]['last_active'] = False
+                
+                # Set the new state as active only if it's not "none"
+                if mod_state != "none":
+                    self.fade_mod_states[mod_state]['active'] = True
+                    self.fade_mod_states[mod_state]['last_active'] = False
+                
+                # Trigger ball movement animation if we have a current position
+                # Only do this when we transition from main state to mod state
+                if self.ball_position is not None and not self.current_state:
+                    # Get the center of the new state's rectangle for target position
+                    if mod_state != "none":
+                        x, y = self.positions[mod_state]
+                        center_x = x + self.rect_width // 2
+                        center_y = y + self.rect_height // 2
+                        self.target_position = (center_x, center_y)
+                        self.ball_transition_start = time.time()
+                        self.is_ball_moving = True
             
             self.current_mod_state = mod_state
-            self.state_mod_time = state_mod_time
+            self.state_mod_time = state_time = state_mod_time
         else:
             print(f"Warning: Unknown mod state '{mod_state}'. Mod state not updated.")
     
@@ -234,14 +283,15 @@ class StateVisualizer:
         """
         # Convert BGR to HSV
         b, g, r = color
-        hsv = cv2.cvtColor(np.uint8([[color]]), cv2.COLOR_BGR2HSV)[0][0]
+        color_arr = np.array([[color]], dtype=np.uint8)
+        hsv = cv2.cvtColor(color_arr, cv2.COLOR_BGR2HSV)[0][0]
         h, s, v = hsv
         
         # Reduce saturation
         s = int(s * (1 - amount))
         
         # Convert back to BGR
-        new_hsv = np.uint8([[[h, s, v]]])
+        new_hsv = np.array([[[h, s, v]]], dtype=np.uint8)
         new_bgr = cv2.cvtColor(new_hsv, cv2.COLOR_HSV2BGR)[0][0]
         
         return tuple(map(int, new_bgr))
@@ -252,16 +302,12 @@ class StateVisualizer:
         
         Args:
             state_info (dict): Dictionary containing fade information
-            active_color (tuple): RGB color for active state
-            inactive_color (tuple): RGB color for inactive state
+            active_color (tuple): BGR color for active state
+            inactive_color (tuple): BGR color for inactive state
             
         Returns:
-            tuple: RGB color tuple
+            tuple: BGR color tuple
         """
-        # Desaturate the active and inactive colors
-        #active_color = self._desaturate_color(active_color)
-        #inactive_color = self._desaturate_color(inactive_color)
-        
         if state_info['active']:
             return active_color
         
@@ -312,6 +358,82 @@ class StateVisualizer:
         
         # Place the blended result back on the canvas
         self.canvas[y:y+height, x:x+width] = blended
+    
+    def _update_ball_position(self):
+        """Update the ball position during transition animation"""
+        with self.ball_lock:
+            if not self.is_ball_moving or self.target_position is None or self.ball_position is None:
+                return
+            
+            # Calculate elapsed time since transition start
+            elapsed = time.time() - self.ball_transition_start
+            progress = min(1.0, elapsed / self.ball_transition_duration)
+            
+            # Use an easing function for smoother motion (ease out cubic)
+            ease_progress = 1 - (1 - progress) ** 3
+            
+            # If transition is complete, set final position
+            if progress >= 1.0:
+                self.ball_position = self.target_position
+                self.is_ball_moving = False
+                return
+            
+            # Interpolate between start and target positions
+            start_x, start_y = self.ball_position
+            target_x, target_y = self.target_position
+            
+            current_x = start_x + (target_x - start_x) * ease_progress
+            current_y = start_y + (target_y - start_y) * ease_progress
+            
+            self.ball_position = (current_x, current_y)
+    
+    def _draw_state_ball(self):
+        """Draw the ball indicating the current active state"""
+        with self.ball_lock:
+            if self.ball_position is None:
+                return
+            
+            # Extract ball position
+            x, y = self.ball_position
+            x, y = int(x), int(y)
+            
+            # Make sure the ball is within canvas bounds
+            if x < 0 or y < 0 or x >= self.width or y >= self.height:
+                return
+            
+            # Draw the ball with slight transparency for better visibility
+            overlay = self.canvas.copy()
+            
+            # Draw a glow effect (larger, more transparent circle)
+            glow_radius = self.ball_radius + 10
+            cv2.circle(overlay, (x, y), glow_radius, self.ball_color, -1)
+            
+            # Draw the main ball
+            cv2.circle(overlay, (x, y), self.ball_radius, self.ball_color, -1)
+            
+            # Add black outline
+            cv2.circle(overlay, (x, y), self.ball_radius, (0, 0, 0), 2)
+            
+            # Add highlight for 3D effect (small white circle in top-left quadrant)
+            highlight_radius = self.ball_radius // 3
+            highlight_offset = self.ball_radius // 3
+            highlight_x = x - highlight_offset
+            highlight_y = y - highlight_offset
+            
+            # Make sure highlight is within canvas bounds
+            if (0 <= highlight_x < self.width and 
+                0 <= highlight_y < self.height and 
+                highlight_x + highlight_radius < self.width and 
+                highlight_y + highlight_radius < self.height):
+                cv2.circle(overlay, 
+                          (highlight_x, highlight_y), 
+                          highlight_radius, 
+                          (255, 255, 255), 
+                          -1)
+            
+            # Blend the ball onto the canvas
+            alpha = 0.8  # Ball opacity
+            cv2.addWeighted(overlay, alpha, self.canvas, 1 - alpha, 0, self.canvas)
     
     def _draw_rectangles(self):
         """Draw all rectangles on the canvas with the appropriate colors"""
@@ -414,7 +536,7 @@ class StateVisualizer:
         # Draw each rectangle for mod states
         for state in self.mod_states:
             x, y = self.positions[state]
-            if(state != "none"):
+            if state != "none":
                 # Set color based on active state and fade effect
                 # Yellow (0, 255, 255) for active, Purple (255, 0, 255) for inactive
                 color = self._calculate_fade_color(
@@ -467,49 +589,52 @@ class StateVisualizer:
                     text_x = x + (self.rect_width - text_size[0]) // 2
                     text_y = y + (self.rect_height // 2) - 10  # Move text up
                     cv2.putText(self.canvas, text, (text_x, text_y), 
-                            cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), 2)
+                             cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), 2)
                 
                 # Add time for current mod state
-            if state == self.current_mod_state:
-                time_text = f"{self.state_mod_time:.2f}s"
-                if self.custom_font_loaded:
-                    # Use PIL for time text
-                    from PIL import Image, ImageDraw, ImageFont
-                    
-                    # Create PIL Image from the canvas
-                    pil_img = Image.fromarray(cv2.cvtColor(self.canvas, cv2.COLOR_BGR2RGB))
-                    draw = ImageDraw.Draw(pil_img)
-                    
-                    # Use smaller font for time
-                    font_size = 20
-                    font = ImageFont.truetype(self.font_path, font_size)
-                    
-                    # Calculate text position
-                    bbox = font.getbbox(time_text)
-                    time_width = bbox[2] - bbox[0]
-                    time_height = bbox[3] - bbox[1]
-                    time_x = x + (self.rect_width - time_width) // 2
-                    time_y = y + (self.rect_height // 2) + 5  # Position below state name
-                    
-                    # Draw text on image
-                    draw.text((time_x, time_y), time_text, font=font, fill=(0, 0, 0))
-                    
-                    # Convert back to OpenCV format
-                    self.canvas = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-                else:
-                    # Fallback to OpenCV font
-                    time_size = cv2.getTextSize(time_text, cv2.FONT_HERSHEY_DUPLEX, 0.7, 2)[0]
-                    time_x = x + (self.rect_width - time_size[0]) // 2
-                    time_y = y + (self.rect_height // 2) + 20  # Position below state name
-                    cv2.putText(self.canvas, time_text, (time_x, time_y), 
-                               cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 0, 0), 2)
-        
+                if state == self.current_mod_state:
+                    time_text = f"{self.state_mod_time:.2f}s"
+                    if self.custom_font_loaded:
+                        # Use PIL for time text
+                        from PIL import Image, ImageDraw, ImageFont
+                        
+                        # Create PIL Image from the canvas
+                        pil_img = Image.fromarray(cv2.cvtColor(self.canvas, cv2.COLOR_BGR2RGB))
+                        draw = ImageDraw.Draw(pil_img)
+                        
+                        # Use smaller font for time
+                        font_size = 20
+                        font = ImageFont.truetype(self.font_path, font_size)
+                        
+                        # Calculate text position
+                        bbox = font.getbbox(time_text)
+                        time_width = bbox[2] - bbox[0]
+                        time_height = bbox[3] - bbox[1]
+                        time_x = x + (self.rect_width - time_width) // 2
+                        time_y = y + (self.rect_height // 2) + 5  # Position below state name
+                        
+                        # Draw text on image
+                        draw.text((time_x, time_y), time_text, font=font, fill=(0, 0, 0))
+                        
+                        # Convert back to OpenCV format
+                        self.canvas = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+                    else:
+                        # Fallback to OpenCV font
+                        time_size = cv2.getTextSize(time_text, cv2.FONT_HERSHEY_DUPLEX, 0.7, 2)[0]
+                        time_x = x + (self.rect_width - time_size[0]) // 2
+                        time_y = y + (self.rect_height // 2) + 20  # Position below state name
+                        cv2.putText(self.canvas, time_text, (time_x, time_y), 
+                                   cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 0, 0), 2)
         
         # Draw the left/right control rectangle
         self._draw_left_right_control()
         
         # Draw the forward/reverse control rectangle
         self._draw_forward_reverse_control()
+        
+        # Update and draw the state ball
+        self._update_ball_position()
+        self._draw_state_ball()
         
         # Add title and instructions
         if self.custom_font_loaded:
@@ -593,17 +718,22 @@ class StateVisualizer:
             ratio = min(1.0, max(0.0, self.amount / 70.0))
             edge_x = center_x - int(ratio * (width // 2 - 10))
             
+            # Make sure edge_x is valid
+            edge_x = max(x + 5, edge_x)
+            
             # Create ROI for the black overlay region
             roi_y1, roi_y2 = y + 10, y + height - 10
             roi_x1, roi_x2 = edge_x, center_x
-            roi = self.canvas[roi_y1:roi_y2, roi_x1:roi_x2].copy()
             
-            # Blend with black overlay (higher alpha for better visibility)
-            black_overlay = np.zeros_like(roi)
-            alpha = 0.7  # More opaque for the instruction overlay
-            blended = cv2.addWeighted(black_overlay, alpha, roi, 1-alpha, 0)
-            #if roi is not None and all(c is not None for c in [roi_y1, roi_y2, roi_x1, roi_x2]):
-                #self.canvas[roi_y1:roi_y2, roi_x1:roi_x2] = blended
+            # Ensure ROI is valid
+            if roi_x1 < roi_x2 and roi_y1 < roi_y2:
+                roi = self.canvas[roi_y1:roi_y2, roi_x1:roi_x2].copy()
+                
+                # Blend with black overlay (higher alpha for better visibility)
+                black_overlay = np.zeros_like(roi)
+                alpha = 0.7  # More opaque for the instruction overlay
+                blended = cv2.addWeighted(black_overlay, alpha, roi, 1-alpha, 0)
+                self.canvas[roi_y1:roi_y2, roi_x1:roi_x2] = blended
             
             # Add amount text
             amount_text = f"{(ratio * 70.0):.1f}"
@@ -615,19 +745,23 @@ class StateVisualizer:
             ratio = min(1.0, max(0.0, self.amount / 70.0))
             edge_x = center_x + int(ratio * (width // 2 - 10))
             
+            # Make sure edge_x is valid
+            edge_x = min(x + width - 5, edge_x)
+            
             # Create ROI for the black overlay region
             roi_y1, roi_y2 = y + 10, y + height - 10
             roi_x1, roi_x2 = center_x, edge_x
-            roi = self.canvas[roi_y1:roi_y2, roi_x1:roi_x2].copy()
             
-            # Blend with black overlay (higher alpha for better visibility)
-            black_overlay = np.zeros_like(roi)
-            alpha = 0.7  # More opaque for the instruction overlay
-            blended = cv2.addWeighted(black_overlay, alpha, roi, 1-alpha, 0)
-            #if roi is not None and all(c is not None for c in [roi_y1, roi_y2, roi_x1, roi_x2]):
-                #self.canvas[roi_y1:roi_y2, roi_x1:roi_x2] = blended
+            # Ensure ROI is valid
+            if roi_x1 < roi_x2 and roi_y1 < roi_y2:
+                roi = self.canvas[roi_y1:roi_y2, roi_x1:roi_x2].copy()
+                
+                # Blend with black overlay (higher alpha for better visibility)
+                black_overlay = np.zeros_like(roi)
+                alpha = 0.7  # More opaque for the instruction overlay
+                blended = cv2.addWeighted(black_overlay, alpha, roi, 1-alpha, 0)
+                self.canvas[roi_y1:roi_y2, roi_x1:roi_x2] = blended
             
-            # Add amount text
             # Add amount text
             amount_text = f"{(ratio * 70.0):.1f}"
             cv2.putText(self.canvas, amount_text, (center_x + 20, y + height // 2), 
@@ -641,6 +775,7 @@ class StateVisualizer:
         desaturated_orange = self._desaturate_color((0, 165, 255))  # Desaturate orange
         self._alpha_blend_rect(x, y, width, height, desaturated_orange)
         self.amount = 0 if self.amount is None else self.amount
+        
         # Draw label with custom font
         label = "Forward/Reverse Control"
         if self.custom_font_loaded:
@@ -684,6 +819,9 @@ class StateVisualizer:
             ratio = min(1.0, max(0.0, self.amount / 15.0))
             edge_y = center_y - int(ratio * (height // 2 - 10))
             
+            # Make sure edge_y is valid
+            edge_y = max(y + 5, edge_y)
+            
             # Create ROI for the black overlay region
             roi_y1, roi_y2 = edge_y, center_y
             roi_x1, roi_x2 = x + 10, x + width - 10
@@ -708,6 +846,9 @@ class StateVisualizer:
             ratio = min(1.0, max(0.0, self.amount / 15.0))
             edge_y = center_y + int(ratio * (height // 2 - 10))
             
+            # Make sure edge_y is valid
+            edge_y = min(y + height - 5, edge_y)
+            
             # Create ROI for the black overlay region
             roi_y1, roi_y2 = center_y, edge_y
             roi_x1, roi_x2 = x + 10, x + width - 10
@@ -729,25 +870,32 @@ class StateVisualizer:
     
     def _display_loop(self):
         """Main display loop that updates the window"""
-        # Create a named window that can be moved independently
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, self.width, self.height)
-        
-        while self.is_running:
-            # Draw the rectangles with appropriate states
-            self._draw_rectangles()
+        try:
+            # Create a named window that can be moved independently
+            cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(self.window_name, self.width, self.height)
             
-            # Display the frame
-            cv2.imshow(self.window_name, self.canvas)
-            
-            # Process window events
-            key = cv2.waitKey(1)
-            if key == 27:  # ESC key
-                self.stop()
-                break
-            
-            # Small delay to reduce CPU usage
-            time.sleep(0.01)
+            while self.is_running:
+                try:
+                    # Draw the rectangles with appropriate states
+                    self._draw_rectangles()
+                    
+                    # Display the frame
+                    cv2.imshow(self.window_name, self.canvas)
+                    
+                    # Process window events
+                    key = cv2.waitKey(1)
+                    if key == 27:  # ESC key
+                        self.stop()
+                        break
+                    
+                    # Small delay to reduce CPU usage
+                    time.sleep(0.01)
+                except Exception as e:
+                    print(f"Error in display loop: {e}")
+                    # Don't crash the thread, just log and continue
+        except Exception as e:
+            print(f"Error initializing window: {e}")
     
     def start(self):
         """Start the visualization window in a separate thread"""
@@ -763,5 +911,8 @@ class StateVisualizer:
         self.is_running = False
         if self.thread:
             self.thread.join(timeout=1.0)
-            cv2.destroyWindow(self.window_name)
+            try:
+                cv2.destroyWindow(self.window_name)
+            except:
+                pass  # Ignore errors when closing window
             print(f"Stopped state visualizer window: {self.window_name}")

@@ -1,12 +1,13 @@
 import cv2
-from yolov5 import YOLOv5
+from ultralytics import YOLO  # Changed from yolov5 import YOLOv5
 from sort import *
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import time
+
 class RoadSignDetection:
-    def __init__(self, weights_path: str, confidence_threshold: float = 0.35, device: str = "cpu"):
+    def __init__(self, weights_path: str, confidence_threshold: float = 0.6, device: str = "cpu"):
         """
         Initialize the RoadSignDetection class with the path to the model weights,
         confidence threshold, and the device to run the model on.
@@ -14,7 +15,7 @@ class RoadSignDetection:
         self.weights_path = weights_path
         self.confidence_threshold = confidence_threshold
         self.device = device
-        self.yolo = YOLOv5(self.weights_path, device=self.device)
+        self.yolo = YOLO(self.weights_path)  # Changed to use ultralytics YOLO
         self.tracker = Sort(max_age=400, min_hits=2, iou_threshold=0.1)
         #turn off draw_detections for better framerate
         self.draw_detections = 0
@@ -29,24 +30,26 @@ class RoadSignDetection:
         """
         Return the highest confidence detected sign in the frame without modifying the frame.
         """
-        results = self.yolo.predict(frame)
+        results = self.yolo(frame)  # Changed from self.yolo.predict(frame)
         
         # Initialize variables to track the highest confidence
         highest_confidence = 0
         highest_confidence_label = None
         
-        if results.xyxy is not None and len(results.xyxy):
-            detections = results.xyxy[0]
-            for box in detections:
-                if len(box) >= 6:
-                    x1, y1, x2, y2, conf, cls = box.tolist()
-                    
-                    if conf >= self.confidence_threshold:
-                        if conf > highest_confidence:
-                            highest_confidence = conf
-                            # Use the class name from results.names if available
-                            class_name = class_name = self.names[int(cls)] 
-                            highest_confidence_label = f"{class_name} {conf:.2f}"
+        # Process results from YOLOv11 format
+        if len(results) > 0:
+            # Get the first result
+            result = results[0]
+            boxes = result.boxes
+            
+            for box in boxes:
+                conf = float(box.conf)
+                if conf >= self.confidence_threshold:
+                    if conf > highest_confidence:
+                        highest_confidence = conf
+                        cls = int(box.cls)
+                        class_name = self.names[cls]
+                        highest_confidence_label = f"{class_name} {conf:.2f}"
         
         return highest_confidence_label
 
@@ -68,7 +71,7 @@ class RoadSignDetection:
         fps = 0
         start_time = time.time()
 
-        results = self.yolo.predict(frame)
+        results = self.yolo(frame)  # Changed from self.yolo.predict(frame)
         tracked_output = []
 
         #Currently unused for return
@@ -77,15 +80,22 @@ class RoadSignDetection:
 
         if(self.draw_detections == 1):
             #--------Drawing Detections-----------------------------------------------------------------------
-            if results.xyxy is not None and len(results.xyxy):
-                detections = results.xyxy[0].cpu().numpy()
-            
+            if len(results) > 0:
+                result = results[0]
+                boxes = result.boxes
+                
                 # Filter detections by confidence threshold
-                valid_detections = detections[detections[:, 4] >= self.confidence_threshold]
-
+                valid_detections = []
+                for box in boxes:
+                    conf = float(box.conf)
+                    if conf >= self.confidence_threshold:
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
+                        cls = int(box.cls)
+                        valid_detections.append([x1, y1, x2, y2, conf, cls])
+                
                 if len(valid_detections) > 0:
                     for detection in valid_detections:
-                        x1, y1, x2, y2, conf, cls = detection.tolist()
+                        x1, y1, x2, y2, conf, cls = detection
                     
                         class_id = int(cls)
 
@@ -105,15 +115,23 @@ class RoadSignDetection:
                         #cv2.putText(frame, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         
         #--------Drawing Tracker-----------------------------------------------------------------------
-        if results.xyxy is not None and len(results.xyxy):
-            detections = results.xyxy[0].cpu().numpy()
-            valid_detections_mask = detections[:, 4] >= self.confidence_threshold
-            valid_detections = detections[valid_detections_mask]
-
+        if len(results) > 0:
+            result = results[0]
+            boxes = result.boxes
+            
+            valid_detections = []
+            for box in boxes:
+                conf = float(box.conf)
+                if conf >= self.confidence_threshold:
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    cls = int(box.cls)
+                    valid_detections.append([x1, y1, x2, y2, conf, cls])
+            
             if len(valid_detections) > 0:
-                boxes = valid_detections[:, :4]  # x1, y1, x2, y2
-                scores = valid_detections[:, 4]  # confidence scores
-                classes = valid_detections[:, 5]  # class ids
+                detection_array = np.array(valid_detections)
+                boxes = detection_array[:, :4]  # x1, y1, x2, y2
+                scores = detection_array[:, 4]  # confidence scores
+                classes = detection_array[:, 5]  # class ids
 
                 # Prepare detection data for tracker
                 detection_data = np.hstack([boxes, scores.reshape(-1, 1)])
