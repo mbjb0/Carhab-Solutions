@@ -4,7 +4,7 @@
 <p>The user of this platform will set up a "course" consisting of sequential directional signage, then the vehicle follow the signage to navigate the course. This modular solution provides greater flexibility for small-scale autonomous vehicles across various settings, from indoor delivery systems to inventory management.</p>
 <br>
 <p>Team Members: Mohammad Alburaidi (malburaidi@ucdavis.edu), Logan Field (lrfield@ucdavis.edu), Nasih Al-Barwani (nmalbarwani@ucdavis.edu), Pranav Nallapaneni</p>
-<p>For inquiries about driving algorithm code, model training, or recreating project, contact Logan Field (lrfield@ucdavis.edu)</p>
+<p>For inquiries about driving algorithm code, model training, or recreating project, contact Logan Field (loganrfield2003@gmail.com)</p>
 <br>
 <p><strong>Features</strong></p>
 <p><strong>Sign-Based Navigation System</strong><br>
